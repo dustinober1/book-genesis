@@ -30,11 +30,21 @@
   "engines": {
     "node": ">=20"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --import tsx tests/**/*.test.ts",
+    "test:watch": "node --test --watch --import tsx tests/**/*.test.ts"
+  },
   "peerDependencies": {
     "@mariozechner/pi-ai": "*",
     "@mariozechner/pi-coding-agent": "*",
     "@mariozechner/pi-tui": "*",
     "@sinclair/typebox": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   },
   "pi": {
     "extensions": [
