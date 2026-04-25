@@ -1,0 +1,47 @@
+{
+  "name": "book-genesis",
+  "version": "6.0.0-pi.0",
+  "description": "PI-native autonomous book generation package built on @mariozechner/pi-coding-agent.",
+  "author": "Derived from Book Genesis by Philip Stark",
+  "contributors": [
+    "Philip Stark (original Book Genesis concept, prompts, pipeline design, and open-source development)"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-coding",
+    "book-genesis",
+    "writing",
+    "ai"
+  ],
+  "files": [
+    "extensions",
+    "prompts",
+    "README.md",
+    "compat",
+    "NOTICE.md"
+  ],
+  "homepage": "https://gitlab.com/philipstark/book-genesis",
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/philipstark/book-genesis.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "@sinclair/typebox": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ],
+    "prompts": [
+      "./prompts"
+    ]
+  }
+}
