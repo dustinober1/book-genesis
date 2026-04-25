@@ -13,3 +13,4 @@ Requirements:
 - build a chapter or section outline sized to the target work
 - create reader personas that clarify what must land emotionally and commercially
 - create a voice DNA document that gives the writer a usable stylistic contract
+- record durable creative choices with `book_genesis_record_decision` so later phases preserve them

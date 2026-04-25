@@ -13,3 +13,4 @@ Requirements:
 - keep assets market-facing and concrete
 - reflect the final revised manuscript, not the original pitch
 - package-summary should list every delivery artifact and any outstanding caveats
+- use the ledger and latest passed quality gate to keep delivery assets consistent with the manuscript

@@ -11,3 +11,4 @@ Requirements:
 - target the highest-value issues first
 - preserve the book's existing strengths and voice
 - log what changed and what remains unresolved in `revision-log.md`
+- use the latest quality gate repair brief as the revision contract when present

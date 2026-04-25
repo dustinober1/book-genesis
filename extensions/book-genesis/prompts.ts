@@ -3,38 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { PHASE_ROLE_MAP, type PhaseName, type RunState } from "./types.js";
+import { ARTIFACT_TARGETS } from "./artifacts.js";
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROMPTS_DIR = path.resolve(MODULE_DIR, "../../prompts/book-genesis");
 const cache = new Map<string, string>();
-
-const ARTIFACT_TARGETS: Record<PhaseName, string[]> = {
-  research: ["research/market-research.md", "research/bestseller-dna.md"],
-  foundation: [
-    "foundation/foundation.md",
-    "foundation/outline.md",
-    "foundation/reader-personas.md",
-    "foundation/voice-dna.md",
-  ],
-  write: ["manuscript/chapters/", "manuscript/full-manuscript.md", "manuscript/write-report.md"],
-  evaluate: [
-    "evaluations/genesis-score.md",
-    "evaluations/beta-readers.md",
-    "evaluations/revision-brief.md",
-  ],
-  revise: [
-    "manuscript/full-manuscript.md",
-    "manuscript/chapters/",
-    "evaluations/revision-log.md",
-  ],
-  deliver: [
-    "delivery/logline.md",
-    "delivery/synopsis.md",
-    "delivery/query-letter.md",
-    "delivery/cover-brief.md",
-    "delivery/package-summary.md",
-  ],
-};
 
 function readPrompt(name: string) {
   if (!cache.has(name)) {
@@ -52,6 +25,7 @@ export function buildRunMarker(run: RunState) {
     `id: ${run.id}`,
     `run_dir: ${run.rootDir}`,
     `state_path: ${run.statePath}`,
+    `ledger_path: ${run.ledgerPath}`,
     `phase: ${run.currentPhase}`,
     `role: ${PHASE_ROLE_MAP[run.currentPhase]}`,
     `language: ${run.language}`,
@@ -95,6 +69,7 @@ export function buildSystemPrompt(run: RunState) {
     `Active specialist role: ${PHASE_ROLE_MAP[run.currentPhase]}`,
     `Run directory: ${run.rootDir}`,
     `State file: ${run.statePath}`,
+    `Ledger file: ${run.ledgerPath}`,
     `Isolation rule: only use files and instructions relevant to the ${run.currentPhase} phase.`,
   ].join("\n");
 }
@@ -109,7 +84,18 @@ function readLastHandoff(run: RunState) {
 
 export function buildPhasePrompt(run: RunState) {
   const phasePrompt = readPrompt(run.currentPhase);
-  const artifactTargets = ARTIFACT_TARGETS[run.currentPhase].map((item) => `- ${item}`).join("\n");
+  const artifactTargets = (ARTIFACT_TARGETS[run.currentPhase] ?? []).map((item) => `- ${item}`).join("\n");
+  const completionProtocol = run.currentPhase === "kickoff"
+    ? [
+        "- Call `book_genesis_complete_kickoff` exactly once when kickoff intake is complete.",
+        "- Provide the final, complete answers (not partial drafts).",
+      ].join("\n")
+    : [
+        "- Call `book_genesis_complete_phase` exactly once when this phase is done.",
+        "- Pass the real artifact paths you created or updated.",
+        "- Include unresolved issues only if they truly remain.",
+        "- If completion is blocked, call `book_genesis_report_failure`.",
+      ].join("\n");
 
   return [
     buildRunMarker(run),
@@ -118,9 +104,11 @@ export function buildPhasePrompt(run: RunState) {
     "",
     `Run root: ${run.rootDir}`,
     `State file: ${run.statePath}`,
+    `Ledger file: ${run.ledgerPath}`,
     `Current phase: ${run.currentPhase}`,
     `Language: ${run.language}`,
     `Idea: ${run.idea}`,
+    `Config: ${JSON.stringify(run.config)}`,
     "",
     "Required artifact targets:",
     artifactTargets,
@@ -128,11 +116,11 @@ export function buildPhasePrompt(run: RunState) {
     "Previous handoff:",
     readLastHandoff(run),
     "",
+    "Project brief:",
+    run.kickoff ? JSON.stringify(run.kickoff, null, 2) : "No kickoff brief has been recorded yet.",
+    "",
     "Completion protocol:",
-    "- Call `book_genesis_complete_phase` exactly once when this phase is done.",
-    "- Pass the real artifact paths you created or updated.",
-    "- Include unresolved issues only if they truly remain.",
-    "- If completion is blocked, call `book_genesis_report_failure`.",
+    completionProtocol,
     "",
     phasePrompt,
   ].join("\n");
@@ -140,12 +128,18 @@ export function buildPhasePrompt(run: RunState) {
 
 export function buildCompactionSummary(run: RunState) {
   const artifacts = run.artifacts[run.currentPhase];
+  const latestGate = run.qualityGates.length > 0 ? run.qualityGates[run.qualityGates.length - 1] : null;
   return [
     `Book Genesis run ${run.id}`,
     `Current phase: ${run.currentPhase}`,
     `Completed phases: ${run.completedPhases.join(", ") || "none"}`,
     `Current phase artifacts: ${artifacts.length > 0 ? artifacts.join(", ") : "none"}`,
     `Unresolved issues: ${run.unresolvedIssues.length > 0 ? run.unresolvedIssues.join("; ") : "none"}`,
+    `Ledger: ${run.ledgerPath}`,
+    `Revision cycle: ${run.revisionCycle}/${run.config.maxRevisionCycles}`,
+    latestGate
+      ? `Latest quality gate: ${latestGate.passed ? "passed" : "failed"} at threshold ${latestGate.threshold}`
+      : "Latest quality gate: none",
     `Next action: ${run.nextAction}`,
   ].join("\n");
 }

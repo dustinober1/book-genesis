@@ -1,4 +1,5 @@
 export const PHASE_ORDER = [
+  "kickoff",
   "research",
   "foundation",
   "write",
@@ -10,6 +11,7 @@ export const PHASE_ORDER = [
 export type PhaseName = (typeof PHASE_ORDER)[number];
 
 export const PHASE_ROLE_MAP: Record<PhaseName, string> = {
+  kickoff: "intake strategist",
   research: "researcher",
   foundation: "architect",
   write: "writer",
@@ -36,6 +38,7 @@ export interface PhaseCompletionPayload {
   summary: string;
   artifacts: string[];
   unresolvedIssues: string[];
+  qualityGate?: QualityGateInput;
 }
 
 export interface PhaseFailurePayload {
@@ -54,6 +57,7 @@ export interface RunState {
   workspaceRoot: string;
   rootDir: string;
   statePath: string;
+  ledgerPath: string;
   status: RunStatus;
   currentPhase: PhaseName;
   completedPhases: PhaseName[];
@@ -67,13 +71,118 @@ export interface RunState {
   lastError?: string;
   lastHandoffPath?: string;
   history: PhaseHistoryEntry[];
-  config: {
-    maxRetriesPerPhase: number;
-    chapterBatchSize: number;
+  config: RunConfig;
+  kickoff?: KickoffIntake;
+  qualityGates: QualityGateRecord[];
+  revisionCycle: number;
+  git?: {
+    repoRoot?: string;
+    initializedByRuntime?: boolean;
+    lastSnapshotCommit?: string;
   };
 }
 
 export interface ParsedIdeaInput {
   idea: string;
   language: string;
+}
+
+export type ResearchDepth = "standard" | "deep";
+
+export interface RunConfig {
+  maxRetriesPerPhase: number;
+  chapterBatchSize: number;
+  qualityThreshold: number;
+  maxRevisionCycles: number;
+  researchDepth: ResearchDepth;
+  targetWordCount?: number;
+  audience?: string;
+  tone?: string;
+  gitAutoInit: boolean;
+  gitAutoCommit: boolean;
+  gitCommitPaths: string[];
+}
+
+export interface KickoffIntake {
+  workingTitle: string;
+  genre: string;
+  targetReader: string;
+  promise: string;
+  targetLength: string;
+  tone: string;
+  constraints: string[];
+  successCriteria: string[];
+}
+
+export interface KickoffValidationResult {
+  ok: boolean;
+  issues: string[];
+}
+
+export type ArtifactValidationCode =
+  | "missing_required_target"
+  | "missing_reported_artifact"
+  | "empty_file"
+  | "empty_directory"
+  | "placeholder_text"
+  | "path_outside_run";
+
+export interface ArtifactValidationIssue {
+  code: ArtifactValidationCode;
+  target: string;
+  message: string;
+}
+
+export interface ArtifactValidationResult {
+  ok: boolean;
+  issues: ArtifactValidationIssue[];
+}
+
+export interface SourceLedgerEntry {
+  phase: PhaseName;
+  title: string;
+  url?: string;
+  summary: string;
+  usefulness: string;
+  recordedAt: string;
+}
+
+export interface DecisionLedgerEntry {
+  phase: PhaseName;
+  decision: string;
+  rationale: string;
+  impact: string;
+  recordedAt: string;
+}
+
+export interface RunLedger {
+  sources: SourceLedgerEntry[];
+  decisions: DecisionLedgerEntry[];
+}
+
+export interface QualityScores {
+  marketFit: number;
+  structure: number;
+  prose: number;
+  consistency: number;
+  deliveryReadiness: number;
+}
+
+export interface QualityGateInput {
+  threshold: number;
+  scores: QualityScores;
+  repairBrief: string;
+}
+
+export interface QualityGateRecord extends QualityGateInput {
+  phase: PhaseName;
+  passed: boolean;
+  recordedAt: string;
+}
+
+export interface GitSnapshotResult {
+  enabled: boolean;
+  initialized: boolean;
+  createdCommit: boolean;
+  commitMessage?: string;
 }

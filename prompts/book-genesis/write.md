@@ -13,3 +13,4 @@ Requirements:
 - keep `full-manuscript.md` updated as the assembled manuscript
 - in `write-report.md`, capture chapter count, word-count progress, and any unresolved continuity risks
 - call `book_genesis_compact_context` when context pressure rises or after each batch of roughly three chapters
+- record any major continuity, structure, or voice decision with `book_genesis_record_decision`

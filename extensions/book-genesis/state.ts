@@ -8,8 +8,11 @@ import {
   type PhaseFailurePayload,
   type PhaseHistoryEntry,
   type PhaseName,
+  type RunConfig,
   type RunState,
 } from "./types.js";
+import { DEFAULT_RUN_CONFIG } from "./config.js";
+import { createQualityGate } from "./quality.js";
 
 const RUNS_DIRNAME = "book-projects";
 const STATE_DIRNAME = ".book-genesis";
@@ -51,6 +54,7 @@ export function parseIdeaInput(raw: string): ParsedIdeaInput {
 
 function createPhaseMap<T>(factory: () => T): Record<PhaseName, T> {
   return {
+    kickoff: factory(),
     research: factory(),
     foundation: factory(),
     write: factory(),
@@ -78,7 +82,7 @@ export function ensureRunDirectories(rootDir: string) {
   }
 }
 
-export function createRunState(workspaceRoot: string, rawIdea: string): RunState {
+export function createRunState(workspaceRoot: string, rawIdea: string, config: RunConfig = DEFAULT_RUN_CONFIG): RunState {
   const parsed = parseIdeaInput(rawIdea);
   if (!parsed.idea) {
     throw new Error("A book idea is required.");
@@ -88,6 +92,7 @@ export function createRunState(workspaceRoot: string, rawIdea: string): RunState
   const runId = `${new Date().toISOString().replace(/[:.]/g, "-")}-${slugBase}`;
   const rootDir = path.join(workspaceRoot, RUNS_DIRNAME, runId);
   const statePath = path.join(rootDir, STATE_DIRNAME, "run.json");
+  const ledgerPath = path.join(rootDir, STATE_DIRNAME, "ledger.json");
   ensureRunDirectories(rootDir);
 
   const run: RunState = {
@@ -100,21 +105,21 @@ export function createRunState(workspaceRoot: string, rawIdea: string): RunState
     workspaceRoot,
     rootDir,
     statePath,
+    ledgerPath,
     status: "running",
     currentPhase: PHASE_ORDER[0],
     completedPhases: [],
     attempts: createPhaseMap(() => 0),
     artifacts: createPhaseMap(() => []),
     unresolvedIssues: [],
-    nextAction: "Launch research phase.",
+    nextAction: "Complete kickoff intake phase.",
     createdAt: nowIso(),
     updatedAt: nowIso(),
     stopRequested: false,
     history: [],
-    config: {
-      maxRetriesPerPhase: 1,
-      chapterBatchSize: 3,
-    },
+    config,
+    qualityGates: [],
+    revisionCycle: 0,
   };
 
   return run;
@@ -274,6 +279,41 @@ export function completeCurrentPhase(run: RunState, payload: PhaseCompletionPayl
   run.unresolvedIssues = unresolvedIssues;
   writeHandoff(run, phase, payload.summary, artifacts, unresolvedIssues);
 
+  if (phase === "evaluate" && payload.qualityGate) {
+    const gate = createQualityGate(payload.qualityGate);
+    run.qualityGates.push(gate);
+
+    if (!gate.passed) {
+      run.revisionCycle += 1;
+
+      if (run.revisionCycle > run.config.maxRevisionCycles) {
+        run.status = "failed";
+        run.nextAction = `Manual review required after ${run.config.maxRevisionCycles} revision cycles.`;
+        run.unresolvedIssues = [gate.repairBrief || "Quality gate failed after maximum revision cycles."];
+        return;
+      }
+
+      run.currentPhase = "revise";
+      run.status = run.stopRequested ? "stopped" : "running";
+      run.nextAction = gate.repairBrief
+        ? `Revise manuscript using repair brief: ${gate.repairBrief}`
+        : "Revise manuscript using the latest evaluation findings.";
+      return;
+    }
+
+    run.currentPhase = "deliver";
+    run.status = run.stopRequested ? "stopped" : "running";
+    run.nextAction = run.stopRequested ? "Run paused before deliver phase." : "Launch deliver phase.";
+    return;
+  }
+
+  if (phase === "revise" && run.qualityGates.some((gate) => !gate.passed)) {
+    run.currentPhase = "evaluate";
+    run.status = run.stopRequested ? "stopped" : "running";
+    run.nextAction = run.stopRequested ? "Run paused before evaluate phase." : "Re-evaluate revised manuscript.";
+    return;
+  }
+
   const nextPhase = getNextPhase(phase);
   if (nextPhase) {
     run.currentPhase = nextPhase;
@@ -281,10 +321,11 @@ export function completeCurrentPhase(run: RunState, payload: PhaseCompletionPayl
     run.nextAction = run.stopRequested
       ? `Run paused before ${nextPhase} phase.`
       : `Launch ${nextPhase} phase.`;
-  } else {
-    run.status = "completed";
-    run.nextAction = "Run complete.";
+    return;
   }
+
+  run.status = "completed";
+  run.nextAction = "Run complete.";
 }
 
 export function reportCurrentPhaseFailure(run: RunState, payload: PhaseFailurePayload) {
@@ -333,6 +374,7 @@ export function formatRunStatus(run: RunState) {
     `Language: ${run.language}`,
     `Idea: ${run.idea}`,
     `Root: ${run.rootDir}`,
+    `Ledger: ${run.ledgerPath}`,
     `Completed: ${run.completedPhases.length > 0 ? run.completedPhases.join(", ") : "none"}`,
     `Next action: ${run.nextAction}`,
   ];
@@ -343,6 +385,22 @@ export function formatRunStatus(run: RunState) {
 
   if (run.lastHandoffPath) {
     lines.push(`Last handoff: ${run.lastHandoffPath}`);
+  }
+
+  lines.push(`Revision cycle: ${run.revisionCycle}/${run.config.maxRevisionCycles}`);
+  const latestGate = run.qualityGates.length > 0 ? run.qualityGates[run.qualityGates.length - 1] : null;
+  if (latestGate) {
+    lines.push(`Latest quality gate: ${latestGate.passed ? "passed" : "failed"} at threshold ${latestGate.threshold}`);
+  }
+
+  if (run.git?.repoRoot) {
+    lines.push(`Git repo: ${run.git.repoRoot}`);
+  }
+  if (run.git?.initializedByRuntime) {
+    lines.push("Git init: initialized by runtime");
+  }
+  if (run.git?.lastSnapshotCommit) {
+    lines.push(`Last snapshot commit: ${run.git.lastSnapshotCommit}`);
   }
 
   if (run.unresolvedIssues.length > 0) {

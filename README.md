@@ -21,6 +21,7 @@ gsd install ./pi-extensions/book-genesis
 ## Commands
 
 - `/book-genesis run [language] <idea>`
+- `/book-genesis run --config ./path/to/book-genesis.config.json [language] <idea>`
 - `/book-genesis resume [run-dir]`
 - `/book-genesis status [run-dir]`
 - `/book-genesis stop [run-dir]`
@@ -36,6 +37,45 @@ gsd install ./pi-extensions/book-genesis
 ## Runtime Notes
 
 - orchestration lives in the TypeScript extension
-- run state is stored in `.book-genesis/run.json`
-- handoffs are stored in `.book-genesis/handoffs/`
-- macro phases are `research`, `foundation`, `write`, `evaluate`, `revise`, and `deliver`
+- runs are created under `book-projects/<run-id>/`
+- per-run state is stored in `book-projects/<run-id>/.book-genesis/run.json`
+- per-run handoffs are stored in `book-projects/<run-id>/.book-genesis/handoffs/`
+- macro phases are `kickoff`, `research`, `foundation`, `write`, `evaluate`, `revise`, and `deliver`
+
+## Configuration
+
+Book Genesis reads `book-genesis.config.json` from the workspace root. `--config` can point at a different file.
+
+```json
+{
+  "maxRetriesPerPhase": 1,
+  "chapterBatchSize": 3,
+  "qualityThreshold": 85,
+  "maxRevisionCycles": 2,
+  "researchDepth": "standard",
+  "targetWordCount": 60000,
+  "audience": "adult commercial fiction readers",
+  "tone": "propulsive and emotionally grounded",
+  "gitAutoInit": true,
+  "gitAutoCommit": true,
+  "gitCommitPaths": ["book-projects"]
+}
+```
+
+## Autonomy Features
+
+- Artifact validation blocks phase completion when required files are missing, empty, outside the run directory, or still contain placeholder text.
+- Structured ledgers preserve sources and decisions in `book-projects/<run-id>/.book-genesis/ledger.json` so later phases do not have to infer durable context from prose handoffs.
+- Quality gates let the evaluate phase score the manuscript against the configured threshold. Failed gates route automatically to revision, and revision routes back to evaluation until the manuscript passes or reaches `maxRevisionCycles`.
+
+## Git Hygiene
+
+When `gitAutoInit` is enabled, Book Genesis initializes a repository in the workspace only if one does not already exist. When `gitAutoCommit` is enabled, each completed phase stages `gitCommitPaths` and writes a snapshot commit like `[book-genesis:research] snapshot <run-id>`.
+
+## Development
+
+```bash
+npm install
+npm test
+npm run typecheck
+```

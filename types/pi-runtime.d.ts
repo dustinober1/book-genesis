@@ -6,6 +6,7 @@ declare module "@sinclair/typebox" {
   export const Type: {
     Object(schema: Record<string, unknown>): unknown;
     String(options?: Record<string, unknown>): unknown;
+    Number(options?: Record<string, unknown>): unknown;
     Optional(schema: unknown): unknown;
     Array(schema: unknown): unknown;
     Boolean(options?: Record<string, unknown>): unknown;

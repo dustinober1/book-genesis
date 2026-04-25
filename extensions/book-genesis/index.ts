@@ -19,6 +19,11 @@ import {
 } from "./state.js";
 import { buildCompactionSummary, buildPhasePrompt, buildSystemPrompt, parseRunMarker } from "./prompts.js";
 import { PHASE_ORDER, type PhaseName, type RunState } from "./types.js";
+import { loadRunConfig } from "./config.js";
+import { formatArtifactValidationReport, validatePhaseArtifacts } from "./artifacts.js";
+import { ensureWorkspaceGitRepo, snapshotRunProgress } from "./git.js";
+import { validateKickoffIntake, writeKickoffBrief } from "./intake.js";
+import { recordDecision, recordSource } from "./ledger.js";
 
 const activeRunBySession = new Map<string, string>();
 
@@ -95,6 +100,22 @@ function parseSubcommand(args: string) {
     subcommand,
     rest: rest.join(" ").trim(),
   };
+}
+
+function parseRunArgs(args: string) {
+  const tokens = args.trim().split(/\s+/).filter(Boolean);
+  const configIndex = tokens.indexOf("--config");
+  if (configIndex === -1) {
+    return { configPath: undefined as string | undefined, ideaInput: args };
+  }
+
+  const configPath = tokens[configIndex + 1];
+  if (!configPath) {
+    throw new Error("--config requires a path.");
+  }
+
+  const ideaTokens = tokens.filter((_, index) => index !== configIndex && index !== configIndex + 1);
+  return { configPath, ideaInput: ideaTokens.join(" ") };
 }
 
 function buildSessionName(run: RunState) {
@@ -241,13 +262,28 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
 
       switch (subcommand) {
         case "run": {
-          const parsed = parseIdeaInput(rest);
+          let configPath: string | undefined;
+          let ideaInput = rest;
+          try {
+            ({ configPath, ideaInput } = parseRunArgs(rest));
+          } catch (error) {
+            ctx.ui.notify((error as Error).message, "error");
+            return;
+          }
+
+          const parsed = parseIdeaInput(ideaInput);
           if (!parsed.idea) {
             ctx.ui.notify("Usage: /book-genesis run [language] <idea>", "error");
             return;
           }
 
-          const run = createRunState(process.cwd(), rest);
+          const config = loadRunConfig(process.cwd(), configPath);
+          const gitStatus = ensureWorkspaceGitRepo(process.cwd(), config);
+          const run = createRunState(process.cwd(), ideaInput, config);
+          run.git = {
+            repoRoot: gitStatus.repoRoot,
+            initializedByRuntime: gitStatus.initialized,
+          };
           writeRunState(run);
           ctx.ui.notify(`Created run ${run.id}. Launching ${run.currentPhase}.`, "info");
           await launchPhaseSession(pi, ctx, run, `Starting run for idea: ${run.idea}`);
@@ -312,16 +348,163 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
   pi.registerCommand("book-auto", {
     description: "Compatibility alias for /book-genesis run",
     handler: async (args: string, ctx: any) => {
-      const parsed = parseIdeaInput(args);
+      let configPath: string | undefined;
+      let ideaInput = args;
+      try {
+        ({ configPath, ideaInput } = parseRunArgs(args));
+      } catch (error) {
+        ctx.ui.notify((error as Error).message, "error");
+        return;
+      }
+
+      const parsed = parseIdeaInput(ideaInput);
       if (!parsed.idea) {
         ctx.ui.notify("Usage: /book-auto [language] <idea>", "error");
         return;
       }
 
-      const run = createRunState(process.cwd(), args);
+      const config = loadRunConfig(process.cwd(), configPath);
+      const gitStatus = ensureWorkspaceGitRepo(process.cwd(), config);
+      const run = createRunState(process.cwd(), ideaInput, config);
+      run.git = {
+        repoRoot: gitStatus.repoRoot,
+        initializedByRuntime: gitStatus.initialized,
+      };
       writeRunState(run);
       ctx.ui.notify(`Created run ${run.id}. Launching ${run.currentPhase}.`, "info");
       await launchPhaseSession(pi, ctx, run, `Starting run for idea: ${run.idea}`);
+    },
+  });
+
+  pi.registerTool({
+    name: "book_genesis_complete_kickoff",
+    label: "Book Genesis Complete Kickoff",
+    description: "Record kickoff intake answers, write the project brief, and advance to research.",
+    promptSnippet: "Use this once the human has provided enough kickoff information to start autonomous research.",
+    parameters: Type.Object({
+      run_dir: Type.String({ description: "Absolute path to the Book Genesis run directory" }),
+      workingTitle: Type.String(),
+      genre: Type.String(),
+      targetReader: Type.String(),
+      promise: Type.String(),
+      targetLength: Type.String(),
+      tone: Type.String(),
+      constraints: Type.Array(Type.String()),
+      successCriteria: Type.Array(Type.String()),
+    }),
+    async execute(_toolCallId: string, params: any) {
+      const run = readRunState(stripQuotes(params.run_dir));
+      if (run.currentPhase !== "kickoff") {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Run is on phase ${run.currentPhase}, not kickoff.` }],
+        };
+      }
+
+      const intake = {
+        workingTitle: params.workingTitle,
+        genre: params.genre,
+        targetReader: params.targetReader,
+        promise: params.promise,
+        targetLength: params.targetLength,
+        tone: params.tone,
+        constraints: params.constraints,
+        successCriteria: params.successCriteria,
+      };
+
+      const validation = validateKickoffIntake(intake);
+      if (!validation.ok) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: validation.issues.join("\n") }],
+        };
+      }
+
+      const briefPath = writeKickoffBrief(run, intake);
+      run.kickoff = intake;
+      completeCurrentPhase(run, {
+        summary: "Kickoff intake complete.",
+        artifacts: [briefPath],
+        unresolvedIssues: [],
+      });
+      writeRunState(run);
+
+      const kickoffSnapshot = snapshotRunProgress(run, "kickoff", run.config.gitCommitPaths);
+      if (kickoffSnapshot.createdCommit) {
+        writeRunState(run);
+      }
+
+      if (run.status !== "stopped") {
+        pi.sendUserMessage(`/book-genesis resume "${run.rootDir}"`, { deliverAs: "followUp" });
+      }
+
+      return { content: [{ type: "text", text: "Kickoff complete. Research queued." }] };
+    },
+  });
+
+  pi.registerTool({
+    name: "book_genesis_record_source",
+    label: "Book Genesis Record Source",
+    description: "Record a source used by the active Book Genesis run.",
+    promptSnippet: "Use this when research or evaluation depends on a concrete source.",
+    parameters: Type.Object({
+      run_dir: Type.String({ description: "Absolute path to the Book Genesis run directory" }),
+      phase: StringEnum(PHASE_ORDER),
+      title: Type.String(),
+      url: Type.Optional(Type.String()),
+      summary: Type.String(),
+      usefulness: Type.String(),
+    }),
+    async execute(_toolCallId: string, params: any) {
+      const run = readRunState(stripQuotes(params.run_dir));
+      if (run.currentPhase !== params.phase) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Run is on phase ${run.currentPhase}, not ${params.phase}.` }],
+        };
+      }
+
+      recordSource(run, {
+        phase: params.phase,
+        title: params.title,
+        url: params.url,
+        summary: params.summary,
+        usefulness: params.usefulness,
+      });
+
+      return { content: [{ type: "text", text: "Recorded Book Genesis source." }] };
+    },
+  });
+
+  pi.registerTool({
+    name: "book_genesis_record_decision",
+    label: "Book Genesis Record Decision",
+    description: "Record a durable creative or strategic decision for the active Book Genesis run.",
+    promptSnippet: "Use this when a phase makes a decision later phases should preserve.",
+    parameters: Type.Object({
+      run_dir: Type.String({ description: "Absolute path to the Book Genesis run directory" }),
+      phase: StringEnum(PHASE_ORDER),
+      decision: Type.String(),
+      rationale: Type.String(),
+      impact: Type.String(),
+    }),
+    async execute(_toolCallId: string, params: any) {
+      const run = readRunState(stripQuotes(params.run_dir));
+      if (run.currentPhase !== params.phase) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Run is on phase ${run.currentPhase}, not ${params.phase}.` }],
+        };
+      }
+
+      recordDecision(run, {
+        phase: params.phase,
+        decision: params.decision,
+        rationale: params.rationale,
+        impact: params.impact,
+      });
+
+      return { content: [{ type: "text", text: "Recorded Book Genesis decision." }] };
     },
   });
 
@@ -340,9 +523,27 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
       summary: Type.String({ description: "What was completed in this phase" }),
       artifacts: Type.Optional(Type.Array(Type.String({ description: "Artifact file or directory path" }))),
       unresolved_issues: Type.Optional(Type.Array(Type.String({ description: "Anything still unresolved" }))),
+      quality_gate: Type.Optional(Type.Object({
+        threshold: Type.Number(),
+        scores: Type.Object({
+          marketFit: Type.Number(),
+          structure: Type.Number(),
+          prose: Type.Number(),
+          consistency: Type.Number(),
+          deliveryReadiness: Type.Number(),
+        }),
+        repairBrief: Type.String(),
+      })),
     }),
     async execute(_toolCallId: string, params: any) {
       const run = readRunState(stripQuotes(params.run_dir));
+      if (params.phase === "kickoff") {
+        return {
+          isError: true,
+          content: [{ type: "text", text: "Use book_genesis_complete_kickoff for the kickoff phase." }],
+        };
+      }
+
       if (run.currentPhase !== params.phase) {
         return {
           isError: true,
@@ -355,12 +556,27 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
         };
       }
 
+      const artifacts = params.artifacts ?? [];
+      const validation = validatePhaseArtifacts(run, params.phase as PhaseName, artifacts);
+      if (!validation.ok) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: formatArtifactValidationReport(validation) }],
+        };
+      }
+
       completeCurrentPhase(run, {
         summary: params.summary,
-        artifacts: params.artifacts ?? [],
+        artifacts,
         unresolvedIssues: params.unresolved_issues ?? [],
+        qualityGate: params.quality_gate,
       });
       writeRunState(run);
+
+      const snapshot = snapshotRunProgress(run, params.phase as PhaseName, run.config.gitCommitPaths);
+      if (snapshot.createdCommit) {
+        writeRunState(run);
+      }
 
       if (run.status === "completed") {
         return {
