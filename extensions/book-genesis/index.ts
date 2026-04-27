@@ -5,6 +5,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
 import {
+  approveRun,
   completeCurrentPhase,
   createRunState,
   findLatestRunDir,
@@ -12,6 +13,7 @@ import {
   markPhaseStarted,
   parseIdeaInput,
   readRunState,
+  rejectRun,
   reportCurrentPhaseFailure,
   stopRun,
   stripQuotes,
@@ -247,11 +249,11 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("book-genesis", {
-    description: "Manage autonomous Book Genesis runs: /book-genesis run|resume|status|stop",
+    description: "Manage autonomous Book Genesis runs: /book-genesis run|resume|status|stop|approve|reject",
     getArgumentCompletions: (prefix: string) => {
       const parts = prefix.trim().split(/\s+/);
       if (parts.length <= 1) {
-        return ["run", "resume", "status", "stop"]
+        return ["run", "resume", "status", "stop", "approve", "reject"]
           .filter((item) => item.startsWith(parts[0] ?? ""))
           .map((item) => ({ value: item, label: item }));
       }
@@ -304,6 +306,12 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
             return;
           }
 
+          if (run.status === "awaiting_approval") {
+            ctx.ui.notify(`Run ${run.id} is waiting for approval. Use /book-genesis approve or reject.`, "info");
+            sendStatus(pi, formatRunStatus(run));
+            return;
+          }
+
           if (run.stopRequested) {
             run.stopRequested = false;
             run.status = "running";
@@ -326,6 +334,51 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           return;
         }
 
+        case "approve": {
+          const runDir = resolveRunDir(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+
+          const run = readRunState(runDir);
+          try {
+            approveRun(run);
+          } catch (error) {
+            ctx.ui.notify((error as Error).message, "error");
+            return;
+          }
+
+          writeRunState(run);
+          if (run.status === "completed") {
+            sendStatus(pi, formatRunStatus(run));
+            return;
+          }
+
+          await launchPhaseSession(pi, ctx, run, `Approval received after ${run.approval?.phase ?? "checkpoint"}.`);
+          return;
+        }
+
+        case "reject": {
+          const runDir = resolveRunDir(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+
+          const run = readRunState(runDir);
+          try {
+            rejectRun(run);
+          } catch (error) {
+            ctx.ui.notify((error as Error).message, "error");
+            return;
+          }
+
+          writeRunState(run);
+          sendStatus(pi, formatRunStatus(run));
+          return;
+        }
+
         case "stop": {
           const runDir = resolveRunDir(rest, ctx);
           if (!runDir) {
@@ -341,7 +394,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
         }
 
         default:
-          ctx.ui.notify("Usage: /book-genesis run|resume|status|stop ...", "info");
+          ctx.ui.notify("Usage: /book-genesis run|resume|status|stop|approve|reject ...", "info");
       }
     },
   });

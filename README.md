@@ -25,6 +25,8 @@ gsd install ./pi-extensions/book-genesis
 - `/book-genesis resume [run-dir]`
 - `/book-genesis status [run-dir]`
 - `/book-genesis stop [run-dir]`
+- `/book-genesis approve [run-dir]`
+- `/book-genesis reject [run-dir]`
 - `/book-auto [language] <idea>`
 
 ## Package Layout
@@ -53,6 +55,11 @@ Book Genesis reads `book-genesis.config.json` from the workspace root. `--config
   "qualityThreshold": 85,
   "maxRevisionCycles": 2,
   "researchDepth": "standard",
+  "bookMode": "fiction",
+  "storyBibleEnabled": true,
+  "approvalPhases": ["foundation", "write"],
+  "sampleChaptersForApproval": 3,
+  "exportFormats": ["md", "docx", "epub"],
   "targetWordCount": 60000,
   "audience": "adult commercial fiction readers",
   "tone": "propulsive and emotionally grounded",

@@ -36,7 +36,7 @@ export const PHASE_ROLE_MAP: Record<PhaseName, string> = {
   deliver: "packager",
 };
 
-export type RunStatus = "running" | "stopped" | "failed" | "completed";
+export type RunStatus = "running" | "stopped" | "failed" | "completed" | "awaiting_approval";
 export type PhaseHistoryStatus = "running" | "completed" | "failed" | "stopped";
 
 export interface PhaseHistoryEntry {
@@ -88,6 +88,7 @@ export interface RunState {
   lastHandoffPath?: string;
   storyBiblePath?: string;
   storyBibleJsonPath?: string;
+  approval?: ApprovalRequest;
   history: PhaseHistoryEntry[];
   config: RunConfig;
   kickoff?: KickoffIntake;
@@ -197,6 +198,16 @@ export interface StoryBibleUpdate {
   promises?: string[];
   motifs?: string[];
   glossary?: StoryBibleGlossaryEntry[];
+}
+
+export interface ApprovalRequest {
+  phase: PhaseName;
+  requestedAt: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  note?: string;
+  nextPhase?: PhaseName | null;
+  completionPending?: boolean;
 }
 
 export type ArtifactValidationCode =

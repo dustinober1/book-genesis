@@ -262,6 +262,68 @@ export function writeHandoff(
   return handoffPath;
 }
 
+function shouldPauseForApproval(run: RunState, phase: PhaseName) {
+  return run.config.approvalPhases.includes(phase);
+}
+
+function queueApproval(run: RunState, completedPhase: PhaseName, nextPhase: PhaseName | null, reason: string) {
+  if (run.stopRequested || run.status !== "running" || !shouldPauseForApproval(run, completedPhase)) {
+    return false;
+  }
+
+  run.status = "awaiting_approval";
+  run.approval = {
+    phase: completedPhase,
+    requestedAt: nowIso(),
+    reason,
+    status: "pending",
+    nextPhase,
+    completionPending: nextPhase === null,
+  };
+  run.nextAction = `Review ${completedPhase} artifacts and run /book-genesis approve "${run.rootDir}".`;
+  return true;
+}
+
+export function approveRun(run: RunState, note?: string) {
+  if (run.status !== "awaiting_approval" || !run.approval) {
+    throw new Error("Run is not awaiting approval.");
+  }
+
+  run.approval = {
+    ...run.approval,
+    status: "approved",
+    note: note?.trim() || run.approval.note,
+  };
+
+  if (run.approval.completionPending) {
+    run.status = "completed";
+    run.nextAction = "Run complete.";
+    return;
+  }
+
+  if (run.approval.nextPhase) {
+    run.currentPhase = run.approval.nextPhase;
+  }
+
+  run.status = "running";
+  run.nextAction = `Launch ${run.currentPhase} phase.`;
+}
+
+export function rejectRun(run: RunState, note?: string) {
+  if (run.status !== "awaiting_approval" || !run.approval) {
+    throw new Error("Run is not awaiting approval.");
+  }
+
+  run.status = "stopped";
+  run.stopRequested = true;
+  run.approval = {
+    ...run.approval,
+    status: "rejected",
+    note: note?.trim() || run.approval.note,
+  };
+  run.nextAction = note?.trim() || `Approval rejected after ${run.approval.phase}. Manual review required.`;
+}
+
 export function completeCurrentPhase(run: RunState, payload: PhaseCompletionPayload) {
   const phase = run.currentPhase;
   const artifacts = payload.artifacts.map((item) => item.trim()).filter(Boolean);
@@ -299,12 +361,14 @@ export function completeCurrentPhase(run: RunState, payload: PhaseCompletionPayl
       run.nextAction = gate.repairBrief
         ? `Revise manuscript using repair brief: ${gate.repairBrief}`
         : "Revise manuscript using the latest evaluation findings.";
+      queueApproval(run, phase, run.currentPhase, `Human checkpoint requested after ${phase}.`);
       return;
     }
 
     run.currentPhase = "deliver";
     run.status = run.stopRequested ? "stopped" : "running";
     run.nextAction = run.stopRequested ? "Run paused before deliver phase." : "Launch deliver phase.";
+    queueApproval(run, phase, run.currentPhase, `Human checkpoint requested after ${phase}.`);
     return;
   }
 
@@ -312,6 +376,7 @@ export function completeCurrentPhase(run: RunState, payload: PhaseCompletionPayl
     run.currentPhase = "evaluate";
     run.status = run.stopRequested ? "stopped" : "running";
     run.nextAction = run.stopRequested ? "Run paused before evaluate phase." : "Re-evaluate revised manuscript.";
+    queueApproval(run, phase, run.currentPhase, `Human checkpoint requested after ${phase}.`);
     return;
   }
 
@@ -322,11 +387,13 @@ export function completeCurrentPhase(run: RunState, payload: PhaseCompletionPayl
     run.nextAction = run.stopRequested
       ? `Run paused before ${nextPhase} phase.`
       : `Launch ${nextPhase} phase.`;
+    queueApproval(run, phase, nextPhase, `Human checkpoint requested after ${phase}.`);
     return;
   }
 
   run.status = "completed";
   run.nextAction = "Run complete.";
+  queueApproval(run, phase, null, `Human checkpoint requested after ${phase}.`);
 }
 
 export function reportCurrentPhaseFailure(run: RunState, payload: PhaseFailurePayload) {
@@ -386,6 +453,13 @@ export function formatRunStatus(run: RunState) {
 
   if (run.lastHandoffPath) {
     lines.push(`Last handoff: ${run.lastHandoffPath}`);
+  }
+
+  if (run.approval) {
+    lines.push(`Approval: ${run.approval.status} after ${run.approval.phase}`);
+    if (run.approval.note) {
+      lines.push(`Approval note: ${run.approval.note}`);
+    }
   }
 
   lines.push(`Revision cycle: ${run.revisionCycle}/${run.config.maxRevisionCycles}`);
