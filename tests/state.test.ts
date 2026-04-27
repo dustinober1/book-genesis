@@ -114,8 +114,10 @@ test("evaluate with passing quality gate advances directly to deliver", () => {
           marketFit: 88,
           structure: 90,
           prose: 86,
-          consistency: 84,
+          consistency: 85,
           deliveryReadiness: 89,
+          pacing: 91,
+          payoff: 90,
         },
         repairBrief: "",
       },
@@ -144,6 +146,8 @@ test("evaluate with failing quality gate routes to revise", () => {
           prose: 88,
           consistency: 84,
           deliveryReadiness: 80,
+          pacing: 90,
+          payoff: 89,
         },
         repairBrief: "Strengthen midpoint escalation and ending payoff.",
       },
@@ -170,8 +174,11 @@ test("revise after failed gate routes back to evaluate", () => {
         prose: 88,
         consistency: 84,
         deliveryReadiness: 80,
+        pacing: 90,
+        payoff: 89,
       },
       repairBrief: "Fix structure.",
+      failedDimensions: ["structure"],
       recordedAt: new Date().toISOString(),
     });
 
@@ -184,4 +191,3 @@ test("revise after failed gate routes back to evaluate", () => {
     assert.equal(run.currentPhase, "evaluate");
   });
 });
-

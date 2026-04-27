@@ -19,6 +19,13 @@ export type BookMode =
 
 export type ExportFormat = "md" | "docx" | "epub";
 
+export interface RubricDimension {
+  key: string;
+  label: string;
+  weight: number;
+  threshold: number;
+}
+
 export const PHASE_ROLE_MAP: Record<PhaseName, string> = {
   kickoff: "intake strategist",
   research: "researcher",
@@ -239,6 +246,7 @@ export interface QualityScores {
   prose: number;
   consistency: number;
   deliveryReadiness: number;
+  [key: string]: number;
 }
 
 export interface QualityGateInput {
@@ -250,6 +258,7 @@ export interface QualityGateInput {
 export interface QualityGateRecord extends QualityGateInput {
   phase: PhaseName;
   passed: boolean;
+  failedDimensions: string[];
   recordedAt: string;
 }
 

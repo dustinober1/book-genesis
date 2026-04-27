@@ -13,5 +13,5 @@ Requirements:
 - make the revision brief surgical and prioritized
 - avoid rewriting the book in this phase
 - before calling `book_genesis_complete_phase`, include `quality_gate` using the run config quality threshold
-- `quality_gate.scores` must be integers from 1 to 100 for marketFit, structure, prose, consistency, and deliveryReadiness
+- `quality_gate.scores` must include the core scores `marketFit`, `structure`, `prose`, `consistency`, and `deliveryReadiness`, plus the mode-specific rubric dimensions required by the active book mode
 - if any score is below threshold, write a concrete `quality_gate.repairBrief` the revise phase can execute

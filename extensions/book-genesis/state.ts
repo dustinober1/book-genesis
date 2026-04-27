@@ -281,7 +281,7 @@ export function completeCurrentPhase(run: RunState, payload: PhaseCompletionPayl
   writeHandoff(run, phase, payload.summary, artifacts, unresolvedIssues);
 
   if (phase === "evaluate" && payload.qualityGate) {
-    const gate = createQualityGate(payload.qualityGate);
+    const gate = createQualityGate(run.config.bookMode, payload.qualityGate);
     run.qualityGates.push(gate);
 
     if (!gate.passed) {
