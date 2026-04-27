@@ -113,7 +113,9 @@ export function validatePhaseArtifacts(
   phase: PhaseName,
   reportedArtifacts: string[],
 ): ArtifactValidationResult {
-  const requiredTargets = getArtifactsForPhase(run.config.bookMode, phase) ?? [];
+  const requiredTargets = getArtifactsForPhase(run.config.bookMode, phase, {
+    storyBibleEnabled: run.config.storyBibleEnabled,
+  }) ?? [];
   const issues: ArtifactValidationIssue[] = [];
 
   for (const target of requiredTargets) {
@@ -145,7 +147,9 @@ export function validatePhaseArtifacts(
 }
 
 export function listArtifactTargets(run: RunState, phase: PhaseName) {
-  return getArtifactsForPhase(run.config.bookMode, phase) ?? [];
+  return getArtifactsForPhase(run.config.bookMode, phase, {
+    storyBibleEnabled: run.config.storyBibleEnabled,
+  }) ?? [];
 }
 
 export function formatArtifactValidationReport(result: ArtifactValidationResult) {

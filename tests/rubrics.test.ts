@@ -40,3 +40,22 @@ test("prescriptive nonfiction rubric fails when clarity drops below its own thre
   assert.equal(gate.passed, false);
   assert.equal(gate.failedDimensions.includes("clarity"), true);
 });
+
+test("quality gate fails when scores clear rubric floors but miss the configured threshold", () => {
+  const gate = createQualityGate("fiction", {
+    threshold: 90,
+    scores: {
+      marketFit: 85,
+      structure: 85,
+      prose: 85,
+      consistency: 85,
+      deliveryReadiness: 85,
+      pacing: 88,
+      payoff: 88,
+    },
+    repairBrief: "Lift the overall draft quality above the target bar.",
+  });
+
+  assert.equal(gate.passed, false);
+  assert.equal(gate.failedDimensions.length, 0);
+});

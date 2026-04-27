@@ -36,7 +36,7 @@ test("completeCurrentPhase pauses for approval when the phase is gated", () => {
   });
 });
 
-test("approveRun resumes the queued next phase", () => {
+test("approveRun resumes the queued next phase and preserves approval notes", () => {
   withRun((run) => {
     run.currentPhase = "foundation";
     completeCurrentPhase(run, {
@@ -45,11 +45,12 @@ test("approveRun resumes the queued next phase", () => {
       unresolvedIssues: [],
     });
 
-    approveRun(run);
+    approveRun(run, "Keep the core promise but sharpen the hook.");
 
     assert.equal(run.status, "running");
     assert.equal(run.currentPhase, "write");
     assert.equal(run.approval?.status, "approved");
+    assert.equal(run.approval?.note, "Keep the core promise but sharpen the hook.");
   });
 });
 

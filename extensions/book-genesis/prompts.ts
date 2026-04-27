@@ -72,7 +72,7 @@ export function buildSystemPrompt(run: RunState) {
     `Run directory: ${run.rootDir}`,
     `State file: ${run.statePath}`,
     `Ledger file: ${run.ledgerPath}`,
-    `Story bible: ${run.storyBiblePath ?? "not created yet"}`,
+    `Story bible: ${run.config.storyBibleEnabled ? run.storyBiblePath ?? "not created yet" : "disabled for this run"}`,
     `Isolation rule: only use files and instructions relevant to the ${run.currentPhase} phase.`,
   ].join("\n");
 }
@@ -85,10 +85,43 @@ function readLastHandoff(run: RunState) {
   return readFileSync(run.lastHandoffPath, "utf8").trim();
 }
 
+function buildApprovalNoteSection(run: RunState) {
+  if (!run.approval?.note) {
+    return ["Checkpoint feedback:", "none."];
+  }
+
+  return [
+    "Checkpoint feedback:",
+    `Phase: ${run.approval.phase}`,
+    run.approval.note,
+  ];
+}
+
+function buildReviewerFeedbackSection(run: RunState) {
+  if (run.reviewerFeedback.length === 0) {
+    return ["Reviewer feedback:", "none recorded."];
+  }
+
+  const latest = run.reviewerFeedback[run.reviewerFeedback.length - 1];
+  return [
+    "Reviewer feedback:",
+    `Recorded: ${latest.recordedAt}`,
+    `Source phase: ${latest.phase}`,
+    `Artifact: ${latest.artifactPath}`,
+    latest.note,
+  ];
+}
+
 export function buildPhasePrompt(run: RunState) {
   const phasePrompt = readPrompt(run.currentPhase);
   const artifactTargets = listArtifactTargets(run, run.currentPhase).map((item) => `- ${item}`).join("\n");
   const preset = getPresetForMode(run.config.bookMode);
+  const storyBibleSection = run.config.storyBibleEnabled
+    ? ["Story bible summary:", summarizeStoryBible(run)]
+    : [
+        "Story bible:",
+        "disabled for this run. Do not create, update, or rely on story-bible artifacts.",
+      ];
   const completionProtocol = run.currentPhase === "kickoff"
     ? [
         "- Call `book_genesis_complete_kickoff` exactly once when kickoff intake is complete.",
@@ -128,11 +161,14 @@ export function buildPhasePrompt(run: RunState) {
     "Previous handoff:",
     readLastHandoff(run),
     "",
+    ...buildApprovalNoteSection(run),
+    "",
+    ...buildReviewerFeedbackSection(run),
+    "",
     "Project brief:",
     run.kickoff ? JSON.stringify(run.kickoff, null, 2) : "No kickoff brief has been recorded yet.",
     "",
-    "Story bible summary:",
-    summarizeStoryBible(run),
+    ...storyBibleSection,
     "",
     "Completion protocol:",
     completionProtocol,
@@ -151,7 +187,7 @@ export function buildCompactionSummary(run: RunState) {
     `Current phase artifacts: ${artifacts.length > 0 ? artifacts.join(", ") : "none"}`,
     `Unresolved issues: ${run.unresolvedIssues.length > 0 ? run.unresolvedIssues.join("; ") : "none"}`,
     `Ledger: ${run.ledgerPath}`,
-    `Story bible: ${run.storyBiblePath ?? "none"}`,
+    `Story bible: ${run.config.storyBibleEnabled ? run.storyBiblePath ?? "none" : "disabled"}`,
     `Revision cycle: ${run.revisionCycle}/${run.config.maxRevisionCycles}`,
     latestGate
       ? `Latest quality gate: ${latestGate.passed ? "passed" : "failed"} at threshold ${latestGate.threshold}`

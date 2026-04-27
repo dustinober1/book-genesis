@@ -10,6 +10,7 @@ import {
   createRunState,
   readRunState,
   reportCurrentPhaseFailure,
+  requestReviewerRevision,
   stopRun,
   writeRunState,
 } from "../extensions/book-genesis/state.js";
@@ -189,5 +190,42 @@ test("revise after failed gate routes back to evaluate", () => {
     });
 
     assert.equal(run.currentPhase, "evaluate");
+  });
+});
+
+test("requestReviewerRevision reopens a completed run in revise and records feedback", () => {
+  withWorkspace((workspace) => {
+    const run = createRunState(workspace, "historical epic", DEFAULT_RUN_CONFIG);
+    run.currentPhase = "deliver";
+    run.status = "completed";
+
+    const feedbackPath = requestReviewerRevision(
+      run,
+      "The ending lands, but the middle still drags and the reviewer wants clearer chapter transitions.",
+    );
+
+    assert.equal(run.currentPhase, "revise");
+    assert.equal(run.status, "running");
+    assert.equal(run.pendingReviewerRevision?.artifactPath, feedbackPath);
+    assert.equal(run.reviewerFeedback.length, 1);
+    assert.match(run.reviewerFeedback[0].note, /middle still drags/);
+  });
+});
+
+test("revise after reviewer feedback routes back to evaluate", () => {
+  withWorkspace((workspace) => {
+    const run = createRunState(workspace, "historical epic", DEFAULT_RUN_CONFIG);
+    run.currentPhase = "deliver";
+    run.status = "completed";
+    requestReviewerRevision(run, "Tighten the opening, cut repetition, and clarify the ending stakes.");
+
+    completeCurrentPhase(run, {
+      summary: "Reviewer-driven revision complete.",
+      artifacts: ["manuscript/full-manuscript.md"],
+      unresolvedIssues: [],
+    });
+
+    assert.equal(run.currentPhase, "evaluate");
+    assert.equal(run.pendingReviewerRevision, undefined);
   });
 });

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -38,5 +38,17 @@ test("writeExportPackage records configured formats in the manifest", async () =
     const manifest = await writeExportPackage(run);
     assert.equal(manifest.formats.includes("docx"), true);
     assert.equal(manifest.files.some((file) => file.endsWith(".docx")), true);
+  });
+});
+
+test("writeExportPackage uses the mode-specific synopsis artifact for prescriptive nonfiction", async () => {
+  await withRun(async (run) => {
+    run.config.bookMode = "prescriptive-nonfiction";
+    run.config.exportFormats = ["md", "epub"];
+    unlinkSync(path.join(run.rootDir, "delivery", "synopsis.md"));
+    writeFileSync(path.join(run.rootDir, "delivery", "one-page-synopsis.md"), "# One Page Synopsis\n");
+
+    const manifest = await writeExportPackage(run);
+    assert.equal(manifest.files.some((file) => file.endsWith(".epub")), true);
   });
 });

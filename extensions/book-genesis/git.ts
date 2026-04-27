@@ -16,6 +16,19 @@ function runGit(args: string[], cwd: string) {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
+function listChangedFiles(repoRoot: string, repoRelativePaths: string[]) {
+  const output = execFileSync(
+    "git",
+    ["diff", "--cached", "--name-only", "-z", "--", ...repoRelativePaths],
+    { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+  );
+
+  return output
+    .split("\0")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 function ensureLocalAuthorConfig(repoRoot: string) {
   const name = tryGit(["config", "--get", "user.name"], repoRoot);
   const email = tryGit(["config", "--get", "user.email"], repoRoot);
@@ -79,14 +92,19 @@ export function snapshotRunProgress(run: RunState, phase: PhaseName, commitPaths
     return { enabled: true, initialized: false, createdCommit: false };
   }
 
-  runGit(["add", "--", ...existingPaths], repoRoot);
-  const status = runGit(["status", "--short", "--", ...existingPaths], repoRoot);
-  if (!status.trim()) {
+  runGit(["add", "-A", "--", ...existingPaths], repoRoot);
+  const changedFiles = listChangedFiles(repoRoot, existingPaths);
+  if (changedFiles.length === 0) {
     return { enabled: true, initialized: false, createdCommit: false };
   }
 
-  const commitMessage = `[book-genesis:${phase}] snapshot ${run.id}`;
-  runGit(["commit", "-m", commitMessage], repoRoot);
+  let lastCommitMessage = "";
+  for (const filePath of changedFiles) {
+    const commitMessage = `[book-genesis:${phase}] ${filePath} ${run.id}`;
+    runGit(["commit", "-m", commitMessage, "--", filePath], repoRoot);
+    lastCommitMessage = commitMessage;
+  }
+
   const sha = runGit(["rev-parse", "HEAD"], repoRoot);
 
   run.git = {
@@ -99,6 +117,6 @@ export function snapshotRunProgress(run: RunState, phase: PhaseName, commitPaths
     enabled: true,
     initialized: false,
     createdCommit: true,
-    commitMessage,
+    commitMessage: lastCommitMessage,
   };
 }

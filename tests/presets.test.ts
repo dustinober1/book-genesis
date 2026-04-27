@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getPresetForMode } from "../extensions/book-genesis/presets.js";
+import { getArtifactsForPhase, getPresetForMode } from "../extensions/book-genesis/presets.js";
 
 test("fiction preset requires query package artifacts", () => {
   const preset = getPresetForMode("fiction");
@@ -18,4 +18,9 @@ test("prescriptive nonfiction preset requires proposal artifacts", () => {
 test("childrens preset requires illustrator guidance", () => {
   const preset = getPresetForMode("childrens");
   assert.equal(preset.deliveryArtifacts.includes("delivery/illustrator-brief.md"), true);
+});
+
+test("foundation artifacts omit the story bible when disabled in config", () => {
+  const artifacts = getArtifactsForPhase("fiction", "foundation", { storyBibleEnabled: false });
+  assert.equal(artifacts.includes("foundation/story-bible.md"), false);
 });

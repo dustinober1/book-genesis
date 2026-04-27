@@ -1,5 +1,9 @@
 import type { BookMode, PhaseName } from "./types.js";
 
+interface ArtifactOptions {
+  storyBibleEnabled?: boolean;
+}
+
 export interface BookPreset {
   mode: BookMode;
   researchFocus: string[];
@@ -114,9 +118,14 @@ export function getPresetForMode(mode: BookMode) {
   return PRESETS[mode];
 }
 
-export function getArtifactsForPhase(mode: BookMode, phase: PhaseName) {
+export function getArtifactsForPhase(mode: BookMode, phase: PhaseName, options: ArtifactOptions = {}) {
   if (phase === "foundation") {
-    return getPresetForMode(mode).foundationArtifacts;
+    const artifacts = getPresetForMode(mode).foundationArtifacts;
+    if (options.storyBibleEnabled === false) {
+      return artifacts.filter((artifact) => artifact !== "foundation/story-bible.md");
+    }
+
+    return artifacts;
   }
 
   if (phase === "deliver") {

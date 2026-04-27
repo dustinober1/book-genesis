@@ -90,6 +90,8 @@ export interface RunState {
   storyBibleJsonPath?: string;
   lastExportManifestPath?: string;
   approval?: ApprovalRequest;
+  reviewerFeedback: ReviewerFeedbackEntry[];
+  pendingReviewerRevision?: PendingReviewerRevision;
   history: PhaseHistoryEntry[];
   config: RunConfig;
   kickoff?: KickoffIntake;
@@ -209,6 +211,21 @@ export interface ApprovalRequest {
   note?: string;
   nextPhase?: PhaseName | null;
   completionPending?: boolean;
+}
+
+export interface ReviewerFeedbackEntry {
+  id: string;
+  phase: PhaseName | "completed";
+  note: string;
+  artifactPath: string;
+  recordedAt: string;
+}
+
+export interface PendingReviewerRevision {
+  requestedAt: string;
+  artifactPath: string;
+  note: string;
+  requestedFrom: PhaseName | "completed";
 }
 
 export type ArtifactValidationCode =

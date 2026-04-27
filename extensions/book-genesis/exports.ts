@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
@@ -8,6 +8,21 @@ import type { ExportManifest, ExportFormat, RunState } from "./types.js";
 
 const require = createRequire(import.meta.url);
 const Epub = require("epub-gen");
+
+function resolveSynopsisPath(run: RunState) {
+  const candidates = run.config.bookMode === "prescriptive-nonfiction"
+    ? ["one-page-synopsis.md", "synopsis.md"]
+    : ["synopsis.md", "one-page-synopsis.md"];
+
+  for (const candidate of candidates) {
+    const filePath = path.join(run.rootDir, "delivery", candidate);
+    if (existsSync(filePath)) {
+      return filePath;
+    }
+  }
+
+  throw new Error(`Export requires a synopsis artifact in delivery/. Checked: ${candidates.join(", ")}`);
+}
 
 function markdownToParagraphs(markdown: string) {
   const lines = markdown.split(/\r?\n/);
@@ -69,7 +84,7 @@ async function writeDocxExport(outputPath: string, manuscript: string) {
 }
 
 async function writeEpubExport(run: RunState, outputPath: string, manuscript: string) {
-  const synopsisPath = path.join(run.rootDir, "delivery", "synopsis.md");
+  const synopsisPath = resolveSynopsisPath(run);
   const synopsis = readFileSync(synopsisPath, "utf8");
   const options = {
     title: run.title,

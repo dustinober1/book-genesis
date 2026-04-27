@@ -21,6 +21,10 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function buildFeedbackFileName(timestamp: string) {
+  return `${timestamp.replace(/[:.]/g, "-")}-reviewer-feedback.md`;
+}
+
 export function slugify(value: string) {
   return value
     .toLowerCase()
@@ -75,6 +79,7 @@ export function ensureRunDirectories(rootDir: string) {
     path.join(rootDir, "manuscript", "chapter-briefs"),
     path.join(rootDir, "manuscript", "chapters"),
     path.join(rootDir, "evaluations"),
+    path.join(rootDir, "evaluations", "reviewer-feedback"),
     path.join(rootDir, "delivery"),
   ];
 
@@ -117,6 +122,7 @@ export function createRunState(workspaceRoot: string, rawIdea: string, config: R
     createdAt: nowIso(),
     updatedAt: nowIso(),
     stopRequested: false,
+    reviewerFeedback: [],
     history: [],
     config,
     qualityGates: [],
@@ -132,7 +138,9 @@ export function readRunState(runDir: string) {
     throw new Error(`Run state not found at ${statePath}`);
   }
 
-  return JSON.parse(readFileSync(statePath, "utf8")) as RunState;
+  const run = JSON.parse(readFileSync(statePath, "utf8")) as RunState;
+  run.reviewerFeedback ??= [];
+  return run;
 }
 
 export function writeRunState(run: RunState) {
@@ -324,6 +332,57 @@ export function rejectRun(run: RunState, note?: string) {
   run.nextAction = note?.trim() || `Approval rejected after ${run.approval.phase}. Manual review required.`;
 }
 
+export function requestReviewerRevision(run: RunState, note: string) {
+  const trimmed = note.trim();
+  if (!trimmed) {
+    throw new Error("Reviewer feedback is required.");
+  }
+
+  if (run.status === "running") {
+    throw new Error("Stop or pause the current run before requesting a reviewer-driven revision.");
+  }
+
+  ensureRunDirectories(run.rootDir);
+  const recordedAt = nowIso();
+  const feedbackPath = path.join(run.rootDir, "evaluations", "reviewer-feedback", buildFeedbackFileName(recordedAt));
+  const requestedFrom = run.status === "completed" ? "completed" : run.currentPhase;
+  const content = [
+    "# Reviewer Feedback",
+    "",
+    `- Run: ${run.id}`,
+    `- Recorded: ${recordedAt}`,
+    `- Requested from: ${requestedFrom}`,
+    "",
+    "## Feedback",
+    trimmed,
+    "",
+  ].join("\n");
+
+  writeFileSync(feedbackPath, content, "utf8");
+
+  run.reviewerFeedback.push({
+    id: path.basename(feedbackPath, ".md"),
+    phase: requestedFrom,
+    note: trimmed,
+    artifactPath: feedbackPath,
+    recordedAt,
+  });
+  run.pendingReviewerRevision = {
+    requestedAt: recordedAt,
+    artifactPath: feedbackPath,
+    note: trimmed,
+    requestedFrom,
+  };
+  run.currentPhase = "revise";
+  run.status = "running";
+  run.stopRequested = false;
+  run.lastError = undefined;
+  run.approval = undefined;
+  run.nextAction = "Revise manuscript using the latest reviewer feedback.";
+
+  return feedbackPath;
+}
+
 export function completeCurrentPhase(run: RunState, payload: PhaseCompletionPayload) {
   const phase = run.currentPhase;
   const artifacts = payload.artifacts.map((item) => item.trim()).filter(Boolean);
@@ -368,6 +427,17 @@ export function completeCurrentPhase(run: RunState, payload: PhaseCompletionPayl
     run.currentPhase = "deliver";
     run.status = run.stopRequested ? "stopped" : "running";
     run.nextAction = run.stopRequested ? "Run paused before deliver phase." : "Launch deliver phase.";
+    queueApproval(run, phase, run.currentPhase, `Human checkpoint requested after ${phase}.`);
+    return;
+  }
+
+  if (phase === "revise" && run.pendingReviewerRevision) {
+    run.pendingReviewerRevision = undefined;
+    run.currentPhase = "evaluate";
+    run.status = run.stopRequested ? "stopped" : "running";
+    run.nextAction = run.stopRequested
+      ? "Run paused before evaluate phase."
+      : "Re-evaluate the manuscript after reviewer-driven revisions.";
     queueApproval(run, phase, run.currentPhase, `Human checkpoint requested after ${phase}.`);
     return;
   }
@@ -460,6 +530,11 @@ export function formatRunStatus(run: RunState) {
     if (run.approval.note) {
       lines.push(`Approval note: ${run.approval.note}`);
     }
+  }
+
+  if (run.reviewerFeedback.length > 0) {
+    lines.push(`Reviewer feedback entries: ${run.reviewerFeedback.length}`);
+    lines.push(`Latest reviewer feedback: ${run.reviewerFeedback[run.reviewerFeedback.length - 1].artifactPath}`);
   }
 
   lines.push(`Revision cycle: ${run.revisionCycle}/${run.config.maxRevisionCycles}`);
