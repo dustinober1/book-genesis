@@ -72,6 +72,7 @@ export function ensureRunDirectories(rootDir: string) {
     path.join(rootDir, "research"),
     path.join(rootDir, "foundation"),
     path.join(rootDir, "manuscript"),
+    path.join(rootDir, "manuscript", "chapter-briefs"),
     path.join(rootDir, "manuscript", "chapters"),
     path.join(rootDir, "evaluations"),
     path.join(rootDir, "delivery"),

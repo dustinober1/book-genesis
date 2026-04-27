@@ -12,7 +12,13 @@ export const ARTIFACT_TARGETS: Record<PhaseName, string[]> = {
     "foundation/reader-personas.md",
     "foundation/voice-dna.md",
   ],
-  write: ["manuscript/chapters/", "manuscript/full-manuscript.md", "manuscript/write-report.md"],
+  write: [
+    "manuscript/chapter-briefs/",
+    "manuscript/chapters/",
+    "manuscript/full-manuscript.md",
+    "manuscript/write-report.md",
+    "manuscript/continuity-report.md",
+  ],
   evaluate: [
     "evaluations/genesis-score.md",
     "evaluations/beta-readers.md",
@@ -131,6 +137,21 @@ export function validatePhaseArtifacts(
     issues.push(...validateTarget(run, artifact, "missing_reported_artifact"));
   }
 
+  if (phase === "write" && issues.length === 0) {
+    const briefDir = path.join(run.rootDir, "manuscript", "chapter-briefs");
+    const chapterDir = path.join(run.rootDir, "manuscript", "chapters");
+    const briefs = readdirSync(briefDir).filter((entry) => entry.endsWith(".md")).sort();
+    const chapters = readdirSync(chapterDir).filter((entry) => entry.endsWith(".md")).sort();
+
+    if (briefs.length < chapters.length) {
+      issues.push({
+        code: "missing_required_target",
+        target: "manuscript/chapter-briefs/",
+        message: "Each drafted chapter must have a corresponding chapter brief.",
+      });
+    }
+  }
+
   return { ok: issues.length === 0, issues };
 }
 
@@ -144,4 +165,3 @@ export function formatArtifactValidationReport(result: ArtifactValidationResult)
     ...result.issues.map((issue) => `- ${issue.target}: ${issue.message} [${issue.code}]`),
   ].join("\n");
 }
-
