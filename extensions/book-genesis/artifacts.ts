@@ -21,6 +21,23 @@ function hasVisibleDirectoryContent(absolute: string) {
   return readdirSync(absolute).some((entry) => !entry.startsWith("."));
 }
 
+function validateSequentialChapterNames(run: RunState, issues: ArtifactValidationIssue[]) {
+  const chapterDir = path.join(run.rootDir, "manuscript", "chapters");
+  const chapterNames = readdirSync(chapterDir).filter((entry) => entry.endsWith(".md")).sort();
+
+  for (let index = 0; index < chapterNames.length; index += 1) {
+    const expectedPrefix = String(index + 1).padStart(2, "0");
+    if (!chapterNames[index].startsWith(expectedPrefix)) {
+      issues.push({
+        code: "missing_required_target",
+        target: "manuscript/chapters/",
+        message: "Write artifacts must use sequential chapter numbering with no gaps.",
+      });
+      break;
+    }
+  }
+}
+
 function validateTarget(
   run: RunState,
   target: string,
@@ -120,6 +137,8 @@ export function validatePhaseArtifacts(
         message: "Each drafted chapter must have a corresponding chapter brief.",
       });
     }
+
+    validateSequentialChapterNames(run, issues);
   }
 
   return { ok: issues.length === 0, issues };

@@ -702,6 +702,13 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
         };
       }
 
+      if (params.phase === "evaluate" && !params.quality_gate) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: "Evaluate phase requires quality_gate." }],
+        };
+      }
+
       const artifacts = params.artifacts ?? [];
       const validation = validatePhaseArtifacts(run, params.phase as PhaseName, artifacts);
       if (!validation.ok) {

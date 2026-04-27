@@ -75,3 +75,20 @@ test("formatArtifactValidationReport produces actionable text", () => {
   assert.match(text, /research\/market-research\.md/);
 });
 
+test("validatePhaseArtifacts rejects manuscripts when chapter numbering skips", () => {
+  withRun((run) => {
+    mkdirSync(path.join(run.rootDir, "manuscript", "chapter-briefs"), { recursive: true });
+    mkdirSync(path.join(run.rootDir, "manuscript", "chapters"), { recursive: true });
+    writeFileSync(path.join(run.rootDir, "manuscript", "chapter-briefs", "01-opening.md"), "# Brief 1\n");
+    writeFileSync(path.join(run.rootDir, "manuscript", "chapter-briefs", "03-finale.md"), "# Brief 3\n");
+    writeFileSync(path.join(run.rootDir, "manuscript", "chapters", "01-opening.md"), "# Chapter 1\n");
+    writeFileSync(path.join(run.rootDir, "manuscript", "chapters", "03-finale.md"), "# Chapter 3\n");
+    writeFileSync(path.join(run.rootDir, "manuscript", "full-manuscript.md"), "# Full\n");
+    writeFileSync(path.join(run.rootDir, "manuscript", "write-report.md"), "# Report\n");
+    writeFileSync(path.join(run.rootDir, "manuscript", "continuity-report.md"), "# Continuity\n");
+
+    const result = validatePhaseArtifacts(run, "write", []);
+    assert.equal(result.ok, false);
+    assert.equal(result.issues.some((issue) => issue.message.includes("chapter numbering")), true);
+  });
+});
