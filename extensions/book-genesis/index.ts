@@ -24,6 +24,7 @@ import { PHASE_ORDER, type PhaseName, type RunState } from "./types.js";
 import { loadRunConfig } from "./config.js";
 import { formatArtifactValidationReport, validatePhaseArtifacts } from "./artifacts.js";
 import { upsertStoryBible } from "./bible.js";
+import { writeExportPackage } from "./exports.js";
 import { ensureWorkspaceGitRepo, snapshotRunProgress } from "./git.js";
 import { validateKickoffIntake, writeKickoffBrief } from "./intake.js";
 import { recordDecision, recordSource } from "./ledger.js";
@@ -249,11 +250,11 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("book-genesis", {
-    description: "Manage autonomous Book Genesis runs: /book-genesis run|resume|status|stop|approve|reject",
+    description: "Manage autonomous Book Genesis runs: /book-genesis run|resume|status|stop|approve|reject|export",
     getArgumentCompletions: (prefix: string) => {
       const parts = prefix.trim().split(/\s+/);
       if (parts.length <= 1) {
-        return ["run", "resume", "status", "stop", "approve", "reject"]
+        return ["run", "resume", "status", "stop", "approve", "reject", "export"]
           .filter((item) => item.startsWith(parts[0] ?? ""))
           .map((item) => ({ value: item, label: item }));
       }
@@ -379,6 +380,20 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           return;
         }
 
+        case "export": {
+          const runDir = resolveRunDir(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+
+          const run = readRunState(runDir);
+          const manifest = await writeExportPackage(run);
+          writeRunState(run);
+          sendStatus(pi, `Exported ${manifest.files.length} files for ${run.id}.\n${manifest.files.join("\n")}`);
+          return;
+        }
+
         case "stop": {
           const runDir = resolveRunDir(rest, ctx);
           if (!runDir) {
@@ -394,7 +409,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
         }
 
         default:
-          ctx.ui.notify("Usage: /book-genesis run|resume|status|stop|approve|reject ...", "info");
+          ctx.ui.notify("Usage: /book-genesis run|resume|status|stop|approve|reject|export ...", "info");
       }
     },
   });

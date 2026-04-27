@@ -15,3 +15,4 @@ Requirements:
 - produce the mode-specific delivery package required by the active book mode, even when it differs from fiction defaults
 - package-summary should list every delivery artifact and any outstanding caveats
 - use the ledger and latest passed quality gate to keep delivery assets consistent with the manuscript
+- leave the manuscript and delivery assets ready for `/book-genesis export` to generate markdown, DOCX, and EPUB packages

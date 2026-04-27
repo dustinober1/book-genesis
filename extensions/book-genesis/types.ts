@@ -88,6 +88,7 @@ export interface RunState {
   lastHandoffPath?: string;
   storyBiblePath?: string;
   storyBibleJsonPath?: string;
+  lastExportManifestPath?: string;
   approval?: ApprovalRequest;
   history: PhaseHistoryEntry[];
   config: RunConfig;
@@ -278,4 +279,9 @@ export interface GitSnapshotResult {
   initialized: boolean;
   createdCommit: boolean;
   commitMessage?: string;
+}
+
+export interface ExportManifest {
+  formats: ExportFormat[];
+  files: string[];
 }

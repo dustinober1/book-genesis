@@ -41,6 +41,10 @@
     "@mariozechner/pi-tui": "*",
     "@sinclair/typebox": "*"
   },
+  "dependencies": {
+    "docx": "^9.6.1",
+    "epub-gen": "^0.1.0"
+  },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "tsx": "^4.20.6",
