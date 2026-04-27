@@ -9,10 +9,25 @@ export const DEFAULT_RUN_CONFIG: RunConfig = {
   qualityThreshold: 85,
   maxRevisionCycles: 2,
   researchDepth: "standard",
+  bookMode: "fiction",
+  storyBibleEnabled: true,
+  approvalPhases: [],
+  sampleChaptersForApproval: 3,
+  exportFormats: ["md", "docx", "epub"],
   gitAutoInit: true,
   gitAutoCommit: true,
   gitCommitPaths: ["book-projects"],
 };
+
+const VALID_BOOK_MODES = new Set<RunConfig["bookMode"]>([
+  "fiction",
+  "memoir",
+  "prescriptive-nonfiction",
+  "narrative-nonfiction",
+  "childrens",
+]);
+
+const VALID_EXPORT_FORMATS = new Set<RunConfig["exportFormats"][number]>(["md", "docx", "epub"]);
 
 function assertPositiveInteger(name: string, value: number) {
   if (!Number.isInteger(value) || value < 1) {
@@ -46,6 +61,36 @@ function normalizeConfig(value: Partial<RunConfig>): RunConfig {
     throw new Error("researchDepth must be standard or deep.");
   }
 
+  if (!VALID_BOOK_MODES.has(config.bookMode)) {
+    throw new Error("bookMode must be one of fiction, memoir, prescriptive-nonfiction, narrative-nonfiction, or childrens.");
+  }
+
+  if (typeof config.storyBibleEnabled !== "boolean") {
+    throw new Error("storyBibleEnabled must be a boolean.");
+  }
+
+  if (!Array.isArray(config.approvalPhases)) {
+    throw new Error("approvalPhases must be an array of phase names.");
+  }
+
+  for (const phase of config.approvalPhases) {
+    if (!["kickoff", "research", "foundation", "write", "evaluate", "revise", "deliver"].includes(phase)) {
+      throw new Error("approvalPhases must contain only valid phase names.");
+    }
+  }
+
+  assertPositiveInteger("sampleChaptersForApproval", config.sampleChaptersForApproval);
+
+  if (!Array.isArray(config.exportFormats) || config.exportFormats.length === 0) {
+    throw new Error("exportFormats must be a non-empty array.");
+  }
+
+  for (const format of config.exportFormats) {
+    if (!VALID_EXPORT_FORMATS.has(format)) {
+      throw new Error("exportFormats must contain only md, docx, or epub.");
+    }
+  }
+
   if (config.targetWordCount !== undefined) {
     assertPositiveInteger("targetWordCount", config.targetWordCount);
   }
@@ -66,6 +111,8 @@ function normalizeConfig(value: Partial<RunConfig>): RunConfig {
   }
 
   config.gitCommitPaths = config.gitCommitPaths.map((entry) => entry.trim());
+  config.approvalPhases = config.approvalPhases.map((entry) => entry.trim()) as RunConfig["approvalPhases"];
+  config.exportFormats = config.exportFormats.map((entry) => entry.trim()) as RunConfig["exportFormats"];
 
   return config;
 }

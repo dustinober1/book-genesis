@@ -10,6 +10,15 @@ export const PHASE_ORDER = [
 
 export type PhaseName = (typeof PHASE_ORDER)[number];
 
+export type BookMode =
+  | "fiction"
+  | "memoir"
+  | "prescriptive-nonfiction"
+  | "narrative-nonfiction"
+  | "childrens";
+
+export type ExportFormat = "md" | "docx" | "epub";
+
 export const PHASE_ROLE_MAP: Record<PhaseName, string> = {
   kickoff: "intake strategist",
   research: "researcher",
@@ -98,6 +107,11 @@ export interface RunConfig {
   targetWordCount?: number;
   audience?: string;
   tone?: string;
+  bookMode: BookMode;
+  storyBibleEnabled: boolean;
+  approvalPhases: PhaseName[];
+  sampleChaptersForApproval: number;
+  exportFormats: ExportFormat[];
   gitAutoInit: boolean;
   gitAutoCommit: boolean;
   gitCommitPaths: string[];
