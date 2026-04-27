@@ -10,6 +10,7 @@ import {
   createRunState,
   findLatestRunDir,
   formatRunStatus,
+  listRunDirs,
   markPhaseStarted,
   parseIdeaInput,
   readRunState,
@@ -250,11 +251,11 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("book-genesis", {
-    description: "Manage autonomous Book Genesis runs: /book-genesis run|resume|status|stop|approve|reject|export",
+    description: "Manage autonomous Book Genesis runs: /book-genesis run|resume|status|stop|approve|reject|list-runs|export",
     getArgumentCompletions: (prefix: string) => {
       const parts = prefix.trim().split(/\s+/);
       if (parts.length <= 1) {
-        return ["run", "resume", "status", "stop", "approve", "reject", "export"]
+        return ["run", "resume", "status", "stop", "approve", "reject", "list-runs", "export"]
           .filter((item) => item.startsWith(parts[0] ?? ""))
           .map((item) => ({ value: item, label: item }));
       }
@@ -380,6 +381,17 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           return;
         }
 
+        case "list-runs": {
+          const runs = listRunDirs(process.cwd());
+          if (runs.length === 0) {
+            sendStatus(pi, "No Book Genesis runs found.");
+            return;
+          }
+
+          sendStatus(pi, runs.map((dir) => formatRunStatus(readRunState(dir))).join("\n\n---\n\n"));
+          return;
+        }
+
         case "export": {
           const runDir = resolveRunDir(rest, ctx);
           if (!runDir) {
@@ -409,7 +421,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
         }
 
         default:
-          ctx.ui.notify("Usage: /book-genesis run|resume|status|stop|approve|reject|export ...", "info");
+          ctx.ui.notify("Usage: /book-genesis run|resume|status|stop|approve|reject|list-runs|export ...", "info");
       }
     },
   });
