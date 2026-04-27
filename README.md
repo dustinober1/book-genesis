@@ -14,8 +14,11 @@ The PI runtime in this folder is an adaptation layer around that original work, 
 ## Install
 
 ```bash
-# From this repository
+# From the monorepo root
 gsd install ./pi-extensions/book-genesis
+
+# Or, from this package directory
+gsd install .
 ```
 
 ## Commands

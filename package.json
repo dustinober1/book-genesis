@@ -22,10 +22,10 @@
     "compat",
     "NOTICE.md"
   ],
-  "homepage": "https://gitlab.com/philipstark/book-genesis",
+  "homepage": "https://github.com/dustinober1/book-genesis",
   "repository": {
     "type": "git",
-    "url": "https://gitlab.com/philipstark/book-genesis.git"
+    "url": "https://github.com/dustinober1/book-genesis.git"
   },
   "engines": {
     "node": ">=20"
