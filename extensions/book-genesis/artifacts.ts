@@ -2,37 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 import type { ArtifactValidationIssue, ArtifactValidationResult, PhaseName, RunState } from "./types.js";
-
-export const ARTIFACT_TARGETS: Record<PhaseName, string[]> = {
-  kickoff: ["foundation/project-brief.md"],
-  research: ["research/market-research.md", "research/bestseller-dna.md"],
-  foundation: [
-    "foundation/foundation.md",
-    "foundation/outline.md",
-    "foundation/reader-personas.md",
-    "foundation/voice-dna.md",
-  ],
-  write: [
-    "manuscript/chapter-briefs/",
-    "manuscript/chapters/",
-    "manuscript/full-manuscript.md",
-    "manuscript/write-report.md",
-    "manuscript/continuity-report.md",
-  ],
-  evaluate: [
-    "evaluations/genesis-score.md",
-    "evaluations/beta-readers.md",
-    "evaluations/revision-brief.md",
-  ],
-  revise: ["manuscript/full-manuscript.md", "manuscript/chapters/", "evaluations/revision-log.md"],
-  deliver: [
-    "delivery/logline.md",
-    "delivery/synopsis.md",
-    "delivery/query-letter.md",
-    "delivery/cover-brief.md",
-    "delivery/package-summary.md",
-  ],
-};
+import { getArtifactsForPhase } from "./presets.js";
 
 const PLACEHOLDER_PATTERNS = [/\bTODO\b/i, /\bTBD\b/i, /\bplaceholder\b/i, /\blorem ipsum\b/i];
 
@@ -126,7 +96,7 @@ export function validatePhaseArtifacts(
   phase: PhaseName,
   reportedArtifacts: string[],
 ): ArtifactValidationResult {
-  const requiredTargets = ARTIFACT_TARGETS[phase] ?? [];
+  const requiredTargets = getArtifactsForPhase(run.config.bookMode, phase) ?? [];
   const issues: ArtifactValidationIssue[] = [];
 
   for (const target of requiredTargets) {
@@ -153,6 +123,10 @@ export function validatePhaseArtifacts(
   }
 
   return { ok: issues.length === 0, issues };
+}
+
+export function listArtifactTargets(run: RunState, phase: PhaseName) {
+  return getArtifactsForPhase(run.config.bookMode, phase) ?? [];
 }
 
 export function formatArtifactValidationReport(result: ArtifactValidationResult) {

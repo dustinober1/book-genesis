@@ -3,8 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { PHASE_ROLE_MAP, type PhaseName, type RunState } from "./types.js";
-import { ARTIFACT_TARGETS } from "./artifacts.js";
+import { listArtifactTargets } from "./artifacts.js";
 import { summarizeStoryBible } from "./bible.js";
+import { getPresetForMode } from "./presets.js";
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROMPTS_DIR = path.resolve(MODULE_DIR, "../../prompts/book-genesis");
@@ -86,7 +87,8 @@ function readLastHandoff(run: RunState) {
 
 export function buildPhasePrompt(run: RunState) {
   const phasePrompt = readPrompt(run.currentPhase);
-  const artifactTargets = (ARTIFACT_TARGETS[run.currentPhase] ?? []).map((item) => `- ${item}`).join("\n");
+  const artifactTargets = listArtifactTargets(run, run.currentPhase).map((item) => `- ${item}`).join("\n");
+  const preset = getPresetForMode(run.config.bookMode);
   const completionProtocol = run.currentPhase === "kickoff"
     ? [
         "- Call `book_genesis_complete_kickoff` exactly once when kickoff intake is complete.",
@@ -111,9 +113,17 @@ export function buildPhasePrompt(run: RunState) {
     `Language: ${run.language}`,
     `Idea: ${run.idea}`,
     `Config: ${JSON.stringify(run.config)}`,
+    `Book mode: ${run.config.bookMode}`,
     "",
     "Required artifact targets:",
     artifactTargets,
+    "",
+    "Preset focus:",
+    run.currentPhase === "research"
+      ? preset.researchFocus.join(", ")
+      : run.currentPhase === "evaluate"
+        ? preset.evaluationFocus.join(", ")
+        : "Follow the phase contract and mode-specific artifact targets.",
     "",
     "Previous handoff:",
     readLastHandoff(run),
