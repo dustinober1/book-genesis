@@ -21,6 +21,7 @@ import { buildCompactionSummary, buildPhasePrompt, buildSystemPrompt, parseRunMa
 import { PHASE_ORDER, type PhaseName, type RunState } from "./types.js";
 import { loadRunConfig } from "./config.js";
 import { formatArtifactValidationReport, validatePhaseArtifacts } from "./artifacts.js";
+import { upsertStoryBible } from "./bible.js";
 import { ensureWorkspaceGitRepo, snapshotRunProgress } from "./git.js";
 import { validateKickoffIntake, writeKickoffBrief } from "./intake.js";
 import { recordDecision, recordSource } from "./ledger.js";
@@ -439,6 +440,73 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
       }
 
       return { content: [{ type: "text", text: "Kickoff complete. Research queued." }] };
+    },
+  });
+
+  pi.registerTool({
+    name: "book_genesis_update_story_bible",
+    label: "Book Genesis Update Story Bible",
+    description: "Persist durable book memory for characters, settings, promises, motifs, and continuity facts.",
+    promptSnippet: "Use this whenever the active phase establishes facts later phases must preserve.",
+    parameters: Type.Object({
+      run_dir: Type.String({ description: "Absolute path to the Book Genesis run directory" }),
+      phase: StringEnum(PHASE_ORDER),
+      premise: Type.Optional(Type.String()),
+      themes: Type.Optional(Type.Array(Type.String())),
+      promises: Type.Optional(Type.Array(Type.String())),
+      motifs: Type.Optional(Type.Array(Type.String())),
+      characters: Type.Optional(Type.Array(Type.Object({
+        id: Type.String(),
+        name: Type.String(),
+        role: Type.String(),
+        desire: Type.String(),
+        fear: Type.Optional(Type.String()),
+        notes: Type.Optional(Type.Array(Type.String())),
+      }))),
+      relationships: Type.Optional(Type.Array(Type.Object({
+        from: Type.String(),
+        to: Type.String(),
+        dynamic: Type.String(),
+        pressure: Type.Optional(Type.String()),
+      }))),
+      settings: Type.Optional(Type.Array(Type.Object({
+        name: Type.String(),
+        function: Type.String(),
+        rules: Type.Array(Type.String()),
+      }))),
+      timeline: Type.Optional(Type.Array(Type.Object({
+        point: Type.String(),
+        event: Type.String(),
+        consequence: Type.Optional(Type.String()),
+      }))),
+      glossary: Type.Optional(Type.Array(Type.Object({
+        term: Type.String(),
+        definition: Type.String(),
+      }))),
+    }),
+    async execute(_toolCallId: string, params: any) {
+      const run = readRunState(stripQuotes(params.run_dir));
+      if (run.currentPhase !== params.phase) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Run is on phase ${run.currentPhase}, not ${params.phase}.` }],
+        };
+      }
+
+      upsertStoryBible(run, {
+        premise: params.premise,
+        themes: params.themes,
+        promises: params.promises,
+        motifs: params.motifs,
+        characters: params.characters,
+        relationships: params.relationships,
+        settings: params.settings,
+        timeline: params.timeline,
+        glossary: params.glossary,
+      });
+      writeRunState(run);
+
+      return { content: [{ type: "text", text: "Updated Book Genesis story bible." }] };
     },
   });
 

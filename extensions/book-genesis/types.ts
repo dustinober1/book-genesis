@@ -79,6 +79,8 @@ export interface RunState {
   stopRequested: boolean;
   lastError?: string;
   lastHandoffPath?: string;
+  storyBiblePath?: string;
+  storyBibleJsonPath?: string;
   history: PhaseHistoryEntry[];
   config: RunConfig;
   kickoff?: KickoffIntake;
@@ -131,6 +133,63 @@ export interface KickoffIntake {
 export interface KickoffValidationResult {
   ok: boolean;
   issues: string[];
+}
+
+export interface StoryBibleCharacter {
+  id: string;
+  name: string;
+  role: string;
+  desire: string;
+  fear?: string;
+  notes?: string[];
+}
+
+export interface StoryBibleRelationship {
+  from: string;
+  to: string;
+  dynamic: string;
+  pressure?: string;
+}
+
+export interface StoryBibleSetting {
+  name: string;
+  function: string;
+  rules: string[];
+}
+
+export interface StoryBibleTimelineEvent {
+  point: string;
+  event: string;
+  consequence?: string;
+}
+
+export interface StoryBibleGlossaryEntry {
+  term: string;
+  definition: string;
+}
+
+export interface StoryBible {
+  premise: string;
+  themes: string[];
+  characters: StoryBibleCharacter[];
+  relationships: StoryBibleRelationship[];
+  settings: StoryBibleSetting[];
+  timeline: StoryBibleTimelineEvent[];
+  promises: string[];
+  motifs: string[];
+  glossary: StoryBibleGlossaryEntry[];
+}
+
+export interface StoryBibleUpdate {
+  premise?: string;
+  themes?: string[];
+  characters?: StoryBibleCharacter[];
+  relationships?: StoryBibleRelationship[];
+  settings?: StoryBibleSetting[];
+  timeline?: StoryBibleTimelineEvent[];
+  promises?: string[];
+  motifs?: string[];
+  glossary?: StoryBibleGlossaryEntry[];
 }
 
 export type ArtifactValidationCode =

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { PHASE_ROLE_MAP, type PhaseName, type RunState } from "./types.js";
 import { ARTIFACT_TARGETS } from "./artifacts.js";
+import { summarizeStoryBible } from "./bible.js";
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROMPTS_DIR = path.resolve(MODULE_DIR, "../../prompts/book-genesis");
@@ -70,6 +71,7 @@ export function buildSystemPrompt(run: RunState) {
     `Run directory: ${run.rootDir}`,
     `State file: ${run.statePath}`,
     `Ledger file: ${run.ledgerPath}`,
+    `Story bible: ${run.storyBiblePath ?? "not created yet"}`,
     `Isolation rule: only use files and instructions relevant to the ${run.currentPhase} phase.`,
   ].join("\n");
 }
@@ -119,6 +121,9 @@ export function buildPhasePrompt(run: RunState) {
     "Project brief:",
     run.kickoff ? JSON.stringify(run.kickoff, null, 2) : "No kickoff brief has been recorded yet.",
     "",
+    "Story bible summary:",
+    summarizeStoryBible(run),
+    "",
     "Completion protocol:",
     completionProtocol,
     "",
@@ -136,6 +141,7 @@ export function buildCompactionSummary(run: RunState) {
     `Current phase artifacts: ${artifacts.length > 0 ? artifacts.join(", ") : "none"}`,
     `Unresolved issues: ${run.unresolvedIssues.length > 0 ? run.unresolvedIssues.join("; ") : "none"}`,
     `Ledger: ${run.ledgerPath}`,
+    `Story bible: ${run.storyBiblePath ?? "none"}`,
     `Revision cycle: ${run.revisionCycle}/${run.config.maxRevisionCycles}`,
     latestGate
       ? `Latest quality gate: ${latestGate.passed ? "passed" : "failed"} at threshold ${latestGate.threshold}`
