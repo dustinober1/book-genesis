@@ -30,6 +30,7 @@ import { upsertStoryBible } from "./bible.js";
 import { writeExportPackage } from "./exports.js";
 import { ensureWorkspaceGitRepo, snapshotRunProgress } from "./git.js";
 import { validateKickoffIntake, writeKickoffBrief } from "./intake.js";
+import { writeKdpPackage } from "./kdp.js";
 import { recordDecision, recordSource } from "./ledger.js";
 
 const activeRunBySession = new Map<string, string>();
@@ -306,11 +307,11 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("book-genesis", {
-    description: "Manage autonomous Book Genesis runs: /book-genesis run|resume|status|stop|approve|reject|feedback|list-runs|export",
+    description: "Manage autonomous Book Genesis runs: /book-genesis run|resume|status|stop|approve|reject|feedback|list-runs|export|kdp",
     getArgumentCompletions: (prefix: string) => {
       const parts = prefix.trim().split(/\s+/);
       if (parts.length <= 1) {
-        return ["run", "resume", "status", "stop", "approve", "reject", "feedback", "list-runs", "export"]
+        return ["run", "resume", "status", "stop", "approve", "reject", "feedback", "list-runs", "export", "kdp"]
           .filter((item) => item.startsWith(parts[0] ?? ""))
           .map((item) => ({ value: item, label: item }));
       }
@@ -486,6 +487,24 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           return;
         }
 
+        case "kdp": {
+          const runDir = resolveRunDir(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+
+          const run = readRunState(runDir);
+          const manifest = await writeKdpPackage(run);
+          writeRunState(run);
+          const warningCount = manifest.issues.filter((issue) => issue.severity === "warning").length;
+          sendStatus(
+            pi,
+            `Prepared KDP package for ${run.id} with ${manifest.files.length} files and ${warningCount} warnings.\n${manifest.files.join("\n")}`,
+          );
+          return;
+        }
+
         case "stop": {
           const runDir = resolveRunDir(rest, ctx);
           if (!runDir) {
@@ -501,7 +520,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
         }
 
         default:
-          ctx.ui.notify("Usage: /book-genesis run|resume|status|stop|approve|reject|feedback|list-runs|export ...", "info");
+          ctx.ui.notify("Usage: /book-genesis run|resume|status|stop|approve|reject|feedback|list-runs|export|kdp ...", "info");
       }
     },
   });

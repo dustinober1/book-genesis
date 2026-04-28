@@ -186,6 +186,24 @@ Notes:
 - Export uses the formats configured in `exportFormats`.
 - Typical outputs are written under `book-projects/<run-id>/delivery/`.
 
+### `/book-genesis kdp`
+
+Prepare a KDP submission package for a run.
+
+Usage:
+
+- `/book-genesis kdp [run-dir]`
+
+Examples:
+
+- `/book-genesis kdp`
+- `/book-genesis kdp ./book-projects/<run-id>`
+
+Notes:
+
+- This command does not publish directly to Amazon KDP.
+- It generates `delivery/kdp/` files, copies KDP-ready assets, writes a preflight report against the current manual KDP workflow, and includes detailed cover-image prompts plus cover spec notes for eBook and paperback submission.
+
 ### `/book-auto`
 
 Compatibility alias for `/book-genesis run`.
@@ -209,6 +227,7 @@ Common usage looks like this:
 3. If a checkpoint pauses, use `/book-genesis approve` or `/book-genesis reject`
 4. After a full review, use `/book-genesis feedback ...` to reopen the run for revisions
 5. Export the final package with `/book-genesis export`
+6. If you plan to publish on Amazon, prepare the KDP package with `/book-genesis kdp`
 
 ## Package Layout
 
@@ -227,6 +246,7 @@ Common usage looks like this:
 - each run can maintain a structured story bible in `foundation/story-bible.md` and `foundation/story-bible.json`
 - the write phase now requires chapter briefs and a continuity report before draft completion
 - the deliver surface can export markdown, DOCX, and EPUB packages from the finished manuscript
+- the KDP surface packages manual-publish assets under `delivery/kdp/` with metadata scaffolding and preflight checks
 
 ## Configuration
 
@@ -249,7 +269,15 @@ Book Genesis reads `book-genesis.config.json` from the workspace root. `--config
   "tone": "propulsive and emotionally grounded",
   "gitAutoInit": true,
   "gitAutoCommit": true,
-  "gitCommitPaths": ["book-projects"]
+  "gitCommitPaths": ["book-projects"],
+  "kdp": {
+    "formats": ["ebook", "paperback"],
+    "trimSize": "6 x 9",
+    "bleed": false,
+    "authorName": "Author Name",
+    "keywords": ["heist thriller", "near future crime"],
+    "categories": ["Thrillers > Crime", "Science Fiction > Cyberpunk"]
+  }
 }
 ```
 
@@ -259,6 +287,7 @@ Additional config notes:
 - `approvalPhases` lets you pause after specific completed phases for human review
 - `storyBibleEnabled` keeps durable project memory available to later phases
 - `exportFormats` controls which final package files `/book-genesis export` generates
+- `kdp` controls the manual Amazon KDP package created by `/book-genesis kdp`
 
 ## Autonomy Features
 

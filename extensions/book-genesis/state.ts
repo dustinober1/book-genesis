@@ -525,6 +525,10 @@ export function formatRunStatus(run: RunState) {
     lines.push(`Last handoff: ${run.lastHandoffPath}`);
   }
 
+  if (run.lastKdpPackageManifestPath) {
+    lines.push(`Last KDP package: ${run.lastKdpPackageManifestPath}`);
+  }
+
   if (run.approval) {
     lines.push(`Approval: ${run.approval.status} after ${run.approval.phase}`);
     if (run.approval.note) {

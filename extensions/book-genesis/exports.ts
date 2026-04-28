@@ -101,7 +101,10 @@ async function writeEpubExport(run: RunState, outputPath: string, manuscript: st
   return outputPath;
 }
 
-export async function writeExportPackage(run: RunState): Promise<ExportManifest> {
+export async function writeExportPackage(
+  run: RunState,
+  requestedFormats: ExportFormat[] = run.config.exportFormats as ExportFormat[],
+): Promise<ExportManifest> {
   const deliveryDir = path.join(run.rootDir, "delivery");
   mkdirSync(deliveryDir, { recursive: true });
 
@@ -112,7 +115,7 @@ export async function writeExportPackage(run: RunState): Promise<ExportManifest>
   writeFileSync(markdownPath, manuscript, "utf8");
   files.push(markdownPath);
 
-  for (const format of run.config.exportFormats) {
+  for (const format of requestedFormats) {
     if (format === "md") {
       continue;
     }
@@ -129,7 +132,7 @@ export async function writeExportPackage(run: RunState): Promise<ExportManifest>
 
   const manifestPath = path.join(deliveryDir, "export-manifest.json");
   const manifest: ExportManifest = {
-    formats: run.config.exportFormats as ExportFormat[],
+    formats: requestedFormats,
     files: [...files, manifestPath],
   };
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");

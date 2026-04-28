@@ -22,6 +22,8 @@ test("loadRunConfig returns new defaults when config file is absent", () => {
     assert.equal(config.storyBibleEnabled, true);
     assert.deepEqual(config.approvalPhases, []);
     assert.deepEqual(config.exportFormats, ["md", "docx", "epub"]);
+    assert.deepEqual(config.kdp.formats, ["ebook", "paperback"]);
+    assert.equal(config.kdp.bleed, false);
   });
 });
 
@@ -33,6 +35,14 @@ test("loadRunConfig normalizes new book-writing fields", () => {
       sampleChaptersForApproval: 2,
       exportFormats: ["md", "docx"],
       qualityThreshold: 87,
+      kdp: {
+        formats: ["paperback"],
+        trimSize: "6 x 9",
+        bleed: true,
+        authorName: "Jane Doe",
+        keywords: ["founder memoir", "startup lessons"],
+        categories: ["Biographies & Memoirs"],
+      },
     }));
 
     const config = loadRunConfig(workspace);
@@ -40,16 +50,23 @@ test("loadRunConfig normalizes new book-writing fields", () => {
     assert.deepEqual(config.approvalPhases, ["foundation", "write"]);
     assert.equal(config.sampleChaptersForApproval, 2);
     assert.deepEqual(config.exportFormats, ["md", "docx"]);
+    assert.deepEqual(config.kdp.formats, ["paperback"]);
+    assert.equal(config.kdp.trimSize, "6 x 9");
+    assert.equal(config.kdp.bleed, true);
+    assert.equal(config.kdp.authorName, "Jane Doe");
   });
 });
 
-test("loadRunConfig rejects invalid book mode and export format", () => {
+test("loadRunConfig rejects invalid book mode, export format, and kdp format", () => {
   withWorkspace((workspace) => {
     writeFileSync(path.join(workspace, "book-genesis.config.json"), JSON.stringify({
       bookMode: "screenplay",
       exportFormats: ["pdf"],
+      kdp: {
+        formats: ["hardcover"],
+      },
     }));
 
-    assert.throws(() => loadRunConfig(workspace), /bookMode|exportFormats/);
+    assert.throws(() => loadRunConfig(workspace), /bookMode|exportFormats|kdp/);
   });
 });

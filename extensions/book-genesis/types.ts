@@ -18,6 +18,7 @@ export type BookMode =
   | "childrens";
 
 export type ExportFormat = "md" | "docx" | "epub";
+export type KdpTargetFormat = "ebook" | "paperback";
 
 export interface RubricDimension {
   key: string;
@@ -89,6 +90,7 @@ export interface RunState {
   storyBiblePath?: string;
   storyBibleJsonPath?: string;
   lastExportManifestPath?: string;
+  lastKdpPackageManifestPath?: string;
   approval?: ApprovalRequest;
   reviewerFeedback: ReviewerFeedbackEntry[];
   pendingReviewerRevision?: PendingReviewerRevision;
@@ -128,6 +130,17 @@ export interface RunConfig {
   gitAutoInit: boolean;
   gitAutoCommit: boolean;
   gitCommitPaths: string[];
+  kdp: KdpConfig;
+}
+
+export interface KdpConfig {
+  formats: KdpTargetFormat[];
+  trimSize?: string;
+  bleed: boolean;
+  authorName?: string;
+  description?: string;
+  keywords: string[];
+  categories: string[];
 }
 
 export interface KickoffIntake {
@@ -301,4 +314,24 @@ export interface GitSnapshotResult {
 export interface ExportManifest {
   formats: ExportFormat[];
   files: string[];
+}
+
+export interface KdpPreflightIssue {
+  severity: "info" | "warning";
+  code: string;
+  message: string;
+}
+
+export interface KdpPackageManifest {
+  files: string[];
+  exportFormats: ExportFormat[];
+  copiedAssets: string[];
+  metadataJsonPath: string;
+  metadataMarkdownPath: string;
+  preflightPath: string;
+  checklistPath: string;
+  instructionsPath: string;
+  coverPromptsPath: string;
+  coverSpecsPath: string;
+  issues: KdpPreflightIssue[];
 }

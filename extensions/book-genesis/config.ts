@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import type { RunConfig } from "./types.js";
+import type { KdpConfig, RunConfig } from "./types.js";
 
 export const DEFAULT_RUN_CONFIG: RunConfig = {
   maxRetriesPerPhase: 1,
@@ -17,6 +17,12 @@ export const DEFAULT_RUN_CONFIG: RunConfig = {
   gitAutoInit: true,
   gitAutoCommit: true,
   gitCommitPaths: ["book-projects"],
+  kdp: {
+    formats: ["ebook", "paperback"],
+    bleed: false,
+    keywords: [],
+    categories: [],
+  },
 };
 
 const VALID_BOOK_MODES = new Set<RunConfig["bookMode"]>([
@@ -28,6 +34,7 @@ const VALID_BOOK_MODES = new Set<RunConfig["bookMode"]>([
 ]);
 
 const VALID_EXPORT_FORMATS = new Set<RunConfig["exportFormats"][number]>(["md", "docx", "epub"]);
+const VALID_KDP_FORMATS = new Set<NonNullable<KdpConfig["formats"]>[number]>(["ebook", "paperback"]);
 
 function assertPositiveInteger(name: string, value: number) {
   if (!Number.isInteger(value) || value < 1) {
@@ -44,6 +51,67 @@ function assertRelativePath(value: string) {
   if (normalized === "" || normalized === "." || normalized.includes("..")) {
     throw new Error("gitCommitPaths must not contain '.' or '..' segments.");
   }
+}
+
+function normalizeStringList(name: string, value: unknown) {
+  if (!Array.isArray(value)) {
+    throw new Error(`${name} must be an array of strings.`);
+  }
+
+  return value.map((entry) => {
+    if (typeof entry !== "string" || !entry.trim()) {
+      throw new Error(`${name} must contain only non-empty strings.`);
+    }
+    return entry.trim();
+  });
+}
+
+function normalizeKdpConfig(value: Partial<KdpConfig> | undefined): KdpConfig {
+  const config: KdpConfig = {
+    ...DEFAULT_RUN_CONFIG.kdp,
+    ...value,
+  };
+
+  if (!Array.isArray(config.formats) || config.formats.length === 0) {
+    throw new Error("kdp.formats must be a non-empty array.");
+  }
+
+  config.formats = config.formats.map((entry) => {
+    const trimmed = entry.trim() as KdpConfig["formats"][number];
+    if (!VALID_KDP_FORMATS.has(trimmed)) {
+      throw new Error("kdp.formats must contain only ebook or paperback.");
+    }
+    return trimmed;
+  });
+
+  if (typeof config.bleed !== "boolean") {
+    throw new Error("kdp.bleed must be a boolean.");
+  }
+
+  if (config.trimSize !== undefined) {
+    if (typeof config.trimSize !== "string" || !config.trimSize.trim()) {
+      throw new Error("kdp.trimSize must be a non-empty string when provided.");
+    }
+    config.trimSize = config.trimSize.trim();
+  }
+
+  if (config.authorName !== undefined) {
+    if (typeof config.authorName !== "string" || !config.authorName.trim()) {
+      throw new Error("kdp.authorName must be a non-empty string when provided.");
+    }
+    config.authorName = config.authorName.trim();
+  }
+
+  if (config.description !== undefined) {
+    if (typeof config.description !== "string" || !config.description.trim()) {
+      throw new Error("kdp.description must be a non-empty string when provided.");
+    }
+    config.description = config.description.trim();
+  }
+
+  config.keywords = normalizeStringList("kdp.keywords", config.keywords);
+  config.categories = normalizeStringList("kdp.categories", config.categories);
+  return config;
 }
 
 function normalizeConfig(value: Partial<RunConfig>): RunConfig {
@@ -113,6 +181,7 @@ function normalizeConfig(value: Partial<RunConfig>): RunConfig {
   config.gitCommitPaths = config.gitCommitPaths.map((entry) => entry.trim());
   config.approvalPhases = config.approvalPhases.map((entry) => entry.trim()) as RunConfig["approvalPhases"];
   config.exportFormats = config.exportFormats.map((entry) => entry.trim()) as RunConfig["exportFormats"];
+  config.kdp = normalizeKdpConfig(value.kdp);
 
   return config;
 }
