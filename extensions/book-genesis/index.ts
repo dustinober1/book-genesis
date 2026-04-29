@@ -29,13 +29,19 @@ import { loadRunConfig } from "./config.js";
 import { formatArtifactValidationReport, validatePhaseArtifacts } from "./artifacts.js";
 import { buildAuditReport, formatAuditReport } from "./audit.js";
 import { writeArchive } from "./archive.js";
+import { writeBetaReaderPacket, type BetaSampleMode } from "./beta-packet.js";
+import { writeBibleCheck } from "./bible-check.js";
 import { upsertStoryBible } from "./bible.js";
 import { writeBookMatter } from "./book-matter.js";
 import { STARTER_CONFIG_MODES, writeStarterConfig } from "./config-init.js";
+import { buildAutoContinuePrompt } from "./continuation.js";
 import { writeCoverCheck } from "./cover-check.js";
 import { writeCritiquePanel } from "./critique.js";
+import { recommendNextAction, writeRunDashboard } from "./dashboard.js";
 import { buildDoctorReport, formatDoctorReport } from "./doctor.js";
+import { buildRunDoctorReport, formatRunDoctorReport } from "./doctor-run.js";
 import { writeExportPackage } from "./exports.js";
+import { buildFinalCheck, finalCheckWarning, formatFinalCheck, writeFinalCheck } from "./final-check.js";
 import { ensureWorkspaceGitRepo, snapshotRunProgress } from "./git.js";
 import { validateKickoffIntake, writeKickoffBrief } from "./intake.js";
 import { compareDrafts, requestChapterRevision, requestWriteSampleCheckpoint } from "./interventions.js";
@@ -47,9 +53,13 @@ import { buildShortStoryBrainstorm, writeShortStoryPackage } from "./promotion.j
 import { approveRevisionPlan, createRevisionPlan, rejectRevisionPlan } from "./revision-plan.js";
 import { writePacingDashboard, writeSceneMap } from "./scenes.js";
 import { buildRunStats, formatRunStats } from "./stats.js";
+import { addSourceToLedger, writeSourcePack } from "./source-pack.js";
 import { writeStyleLint, writeStyleProfile } from "./style.js";
 import { writeSourceAudit } from "./source-audit.js";
 import { chooseVariant, generateVariants } from "./variants.js";
+import { writeProjectMap } from "./project-map.js";
+import { writeRevisionHistory } from "./revision-history.js";
+import { fetchResearchUrl, formatSearchResults, searchInternet } from "./research-web.js";
 import { readIndependentEvaluationScores, scoreDisagreement } from "./evaluation.js";
 
 const activeRunBySession = new Map<string, string>();
@@ -241,12 +251,28 @@ function parseFlagValue(args: string, flag: string) {
   return match?.[1];
 }
 
+function parseTextFlag(args: string, flag: string) {
+  const index = args.split(/\s+/).findIndex((token) => token === flag);
+  if (index === -1) return undefined;
+  const before = args.split(/\s+/).slice(0, index + 1).join(" ");
+  const start = before.length;
+  const parsed = consumeFirstArg(args.slice(start).trim());
+  return parsed.first || undefined;
+}
+
 function removeFlag(args: string, flag: string) {
   return args.replace(new RegExp(`(^|\\s)${flag}(?=\\s|$)`, "g"), " ").trim();
 }
 
 function removeFlagValue(args: string, flag: string) {
   return args.replace(new RegExp(`(^|\\s)${flag}\\s+\\S+(?=\\s|$)`, "g"), " ").trim();
+}
+
+function removeTextFlag(args: string, flag: string) {
+  const value = parseTextFlag(args, flag);
+  if (!value) return args;
+  const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return args.replace(new RegExp(`(^|\\s)${flag}\\s+["']?${escaped}["']?(?=\\s|$)`), " ").trim();
 }
 
 function parseSampleCount(args: string) {
@@ -384,12 +410,27 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
     };
   });
 
+  pi.on("session_compact", async (_event, ctx) => {
+    const sessionKey = getSessionKey(ctx);
+    const runDir = sessionKey ? activeRunBySession.get(sessionKey) : null;
+    if (!runDir) {
+      return;
+    }
+
+    const run = readRunState(runDir);
+    if (run.status !== "running") {
+      return;
+    }
+
+    pi.sendUserMessage(buildAutoContinuePrompt(run, "session auto-compacted"), { deliverAs: "followUp" });
+  });
+
   pi.registerCommand("book-genesis", {
     description: "Manage autonomous Book Genesis runs.",
     getArgumentCompletions: (prefix: string) => {
       const parts = prefix.trim().split(/\s+/);
       if (parts.length <= 1) {
-        return ["run", "resume", "status", "stop", "approve", "reject", "feedback", "feedback-plan", "approve-revision-plan", "reject-revision-plan", "list-runs", "export", "kdp", "audit", "doctor", "open", "stats", "init-config", "style-profile", "style-lint", "scene-map", "pacing", "critique-panel", "source-audit", "variants", "choose-variant", "launch-kit", "book-matter", "cover-check", "archive", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
+        return ["run", "resume", "status", "next", "dashboard", "map", "doctor-run", "stop", "approve", "reject", "feedback", "feedback-plan", "approve-revision-plan", "reject-revision-plan", "list-runs", "export", "kdp", "audit", "final-check", "doctor", "open", "stats", "init-config", "style-profile", "style-lint", "scene-map", "pacing", "critique-panel", "source-audit", "source", "source-pack", "revision-history", "bible-check", "beta-packet", "variants", "choose-variant", "launch-kit", "book-matter", "cover-check", "archive", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
           .filter((item) => item.startsWith(parts[0] ?? ""))
           .map((item) => ({ value: item, label: item }));
       }
@@ -406,9 +447,10 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
       switch (subcommand) {
         case "init-config": {
           const force = rest.split(/\s+/).includes("--force");
-          const mode = rest.replace(/(^|\s)--force(?=\s|$)/g, " ").trim() || "fiction";
+          const preset = parseFlagValue(rest, "--preset");
+          const mode = removeFlagValue(rest.replace(/(^|\s)--force(?=\s|$)/g, " "), "--preset").trim() || "fiction";
           try {
-            const result = writeStarterConfig(process.cwd(), mode as any, force);
+            const result = writeStarterConfig(process.cwd(), mode as any, force, preset);
             sendStatus(pi, `Starter config written.\n${result.configPath}\n${result.guidePath}`);
           } catch (error) {
             ctx.ui.notify((error as Error).message, "error");
@@ -483,6 +525,53 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           }
 
           sendStatus(pi, formatRunStatus(readRunState(runDir)));
+          return;
+        }
+
+        case "next": {
+          const parsed = parseJsonFlag(rest);
+          const runDir = resolveRunDir(parsed.rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const next = recommendNextAction(readRunState(runDir));
+          sendStatus(pi, parsed.json ? JSON.stringify(next, null, 2) : `${next.command}\n${next.reason}`);
+          return;
+        }
+
+        case "dashboard": {
+          const parsed = parseJsonFlag(rest);
+          const runDir = resolveRunDir(parsed.rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const result = writeRunDashboard(readRunState(runDir));
+          sendStatus(pi, parsed.json ? JSON.stringify(result.dashboard, null, 2) : `Dashboard written.\n${result.markdownPath}\n${result.jsonPath}`);
+          return;
+        }
+
+        case "map": {
+          const runDir = resolveRunDir(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const result = writeProjectMap(readRunState(runDir));
+          sendStatus(pi, `Project map written.\n${result.markdownPath}`);
+          return;
+        }
+
+        case "doctor-run": {
+          const parsed = parseJsonFlag(rest);
+          const runDir = resolveRunDir(parsed.rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const report = buildRunDoctorReport(readRunState(runDir));
+          sendStatus(pi, parsed.json ? JSON.stringify(report, null, 2) : formatRunDoctorReport(report));
           return;
         }
 
@@ -668,7 +757,9 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           const run = readRunState(runDir);
           const manifest = await writeExportPackage(run);
           writeRunState(run);
-          sendStatus(pi, `Exported ${manifest.files.length} files for ${run.id}.\n${manifest.files.join("\n")}`);
+          writeRunDashboard(run);
+          const warning = finalCheckWarning(run);
+          sendStatus(pi, [`Exported ${manifest.files.length} files for ${run.id}.`, warning, ...manifest.files].filter(Boolean).join("\n"));
           return;
         }
 
@@ -679,6 +770,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
             return;
           }
           const result = writeBookMatter(readRunState(runDir));
+          writeRunDashboard(readRunState(runDir));
           sendStatus(pi, `Book matter written.\n${[...result.frontFiles, ...result.backFiles, result.seriesPath].filter(Boolean).join("\n")}`);
           return;
         }
@@ -693,11 +785,13 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           const run = readRunState(runDir);
           const manifest = await writeKdpPackage(run);
           writeRunState(run);
+          writeRunDashboard(run);
           const errorCount = manifest.issues.filter((issue) => issue.severity === "error").length;
           const warningCount = manifest.issues.filter((issue) => issue.severity === "warning").length;
+          const warning = finalCheckWarning(run);
           sendStatus(
             pi,
-            `Prepared KDP package for ${run.id} with ${manifest.files.length} files, ${errorCount} errors, and ${warningCount} warnings.\n${manifest.files.join("\n")}`,
+            [`Prepared KDP package for ${run.id} with ${manifest.files.length} files, ${errorCount} errors, and ${warningCount} warnings.`, warning, ...manifest.files].filter(Boolean).join("\n"),
           );
           return;
         }
@@ -713,6 +807,96 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           const run = readRunState(runDir);
           const report = buildAuditReport(run);
           sendStatus(pi, parsedAudit.json ? JSON.stringify(report, null, 2) : formatAuditReport(report));
+          return;
+        }
+
+        case "final-check": {
+          const parsed = parseJsonFlag(rest);
+          const runDir = resolveRunDir(parsed.rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const result = writeFinalCheck(readRunState(runDir));
+          writeRunDashboard(readRunState(runDir));
+          sendStatus(pi, parsed.json ? JSON.stringify(result.report, null, 2) : formatFinalCheck(result.report));
+          return;
+        }
+
+        case "revision-history": {
+          const parsed = parseJsonFlag(rest);
+          const runDir = resolveRunDir(parsed.rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const result = writeRevisionHistory(readRunState(runDir));
+          sendStatus(pi, parsed.json ? JSON.stringify(result.history, null, 2) : `Revision history written.\n${result.mdPath}\n${result.jsonPath}`);
+          return;
+        }
+
+        case "bible-check": {
+          const parsed = parseJsonFlag(rest);
+          const runDir = resolveRunDir(parsed.rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const result = writeBibleCheck(readRunState(runDir));
+          sendStatus(pi, parsed.json ? JSON.stringify(result.report, null, 2) : `Bible check written.\n${result.mdPath}\n${result.jsonPath}`);
+          return;
+        }
+
+        case "source-pack": {
+          const parsed = parseJsonFlag(rest);
+          const runDir = resolveRunDir(parsed.rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const result = writeSourcePack(readRunState(runDir));
+          writeRunDashboard(readRunState(runDir));
+          sendStatus(pi, parsed.json ? JSON.stringify(result.pack, null, 2) : `Source pack written.\n${result.mdPath}\n${result.jsonPath}\n${result.gapPlanPath}`);
+          return;
+        }
+
+        case "source": {
+          const action = parseSubcommand(rest);
+          if (action.subcommand !== "add") {
+            ctx.ui.notify("Usage: /book-genesis source add [run-dir] <title> --summary <text> [--url <url>]", "error");
+            return;
+          }
+          const summary = parseTextFlag(action.rest, "--summary");
+          const url = parseTextFlag(action.rest, "--url");
+          const cleanRest = removeTextFlag(removeTextFlag(action.rest, "--summary"), "--url");
+          const parsed = parseOptionalRunDirAndRest(cleanRest, ctx);
+          if (!parsed.runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const { first: title } = consumeFirstArg(parsed.rest);
+          if (!title || !summary) {
+            ctx.ui.notify("Usage: /book-genesis source add [run-dir] <title> --summary <text> [--url <url>]", "error");
+            return;
+          }
+          addSourceToLedger(readRunState(parsed.runDir), { title, summary, url });
+          sendStatus(pi, `Source recorded: ${title}`);
+          return;
+        }
+
+        case "beta-packet": {
+          const sample = (parseFlagValue(rest, "--sample") ?? "full") as BetaSampleMode;
+          if (!["full", "first-3", "first-5"].includes(sample)) {
+            ctx.ui.notify("Usage: /book-genesis beta-packet [run-dir] [--sample full|first-3|first-5]", "error");
+            return;
+          }
+          const runDir = resolveRunDir(removeFlagValue(rest, "--sample"), ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const result = writeBetaReaderPacket(readRunState(runDir), sample);
+          sendStatus(pi, `Beta reader packet written.\n${[...result.files, result.jsonPath].join("\n")}`);
           return;
         }
 
@@ -791,6 +975,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
             : subcommand === "source-audit" ? writeSourceAudit(run)
             : subcommand === "launch-kit" ? writeLaunchKit(run)
             : writeArchive(run, manifestOnly);
+          writeRunDashboard(run);
           sendStatus(pi, parsed.json ? JSON.stringify(result, null, 2) : `${subcommand} complete.`);
           return;
         }
@@ -1168,6 +1353,82 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
   });
 
   pi.registerTool({
+    name: "book_genesis_web_search",
+    label: "Book Genesis Web Search",
+    description: "Search the public internet for Book Genesis research-phase market, comp-title, audience, and source discovery.",
+    promptSnippet: "Use this during the research phase whenever current market or source facts are needed.",
+    parameters: Type.Object({
+      run_dir: Type.String({ description: "Absolute path to the Book Genesis run directory" }),
+      phase: StringEnum(PHASE_ORDER),
+      query: Type.String({ description: "Search query" }),
+      max_results: Type.Optional(Type.Number({ description: "Maximum results, 1-10" })),
+    }),
+    async execute(_toolCallId: string, params: any) {
+      const run = readRunState(stripQuotes(params.run_dir));
+      if (run.currentPhase !== params.phase) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Run is on phase ${run.currentPhase}, not ${params.phase}.` }],
+        };
+      }
+      if (params.phase !== "research") {
+        return {
+          isError: true,
+          content: [{ type: "text", text: "book_genesis_web_search is only available during the research phase." }],
+        };
+      }
+
+      try {
+        const results = await searchInternet(params.query, Number(params.max_results ?? 5));
+        return { content: [{ type: "text", text: formatSearchResults(results) }] };
+      } catch (error) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Internet search failed: ${(error as Error).message}` }],
+        };
+      }
+    },
+  });
+
+  pi.registerTool({
+    name: "book_genesis_fetch_url",
+    label: "Book Genesis Fetch URL",
+    description: "Fetch and simplify a public URL for Book Genesis research-phase source inspection.",
+    promptSnippet: "Use this after book_genesis_web_search when a source needs more context than the snippet.",
+    parameters: Type.Object({
+      run_dir: Type.String({ description: "Absolute path to the Book Genesis run directory" }),
+      phase: StringEnum(PHASE_ORDER),
+      url: Type.String({ description: "HTTP or HTTPS URL to fetch" }),
+      max_characters: Type.Optional(Type.Number({ description: "Maximum text characters to return" })),
+    }),
+    async execute(_toolCallId: string, params: any) {
+      const run = readRunState(stripQuotes(params.run_dir));
+      if (run.currentPhase !== params.phase) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Run is on phase ${run.currentPhase}, not ${params.phase}.` }],
+        };
+      }
+      if (params.phase !== "research") {
+        return {
+          isError: true,
+          content: [{ type: "text", text: "book_genesis_fetch_url is only available during the research phase." }],
+        };
+      }
+
+      try {
+        const text = await fetchResearchUrl(params.url, Number(params.max_characters ?? 6000));
+        return { content: [{ type: "text", text }] };
+      } catch (error) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `URL fetch failed: ${(error as Error).message}` }],
+        };
+      }
+    },
+  });
+
+  pi.registerTool({
     name: "book_genesis_record_decision",
     label: "Book Genesis Record Decision",
     description: "Record a durable creative or strategic decision for the active Book Genesis run.",
@@ -1412,19 +1673,29 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
     description: "Trigger compaction with Book Genesis-specific instructions.",
     promptSnippet: "Use this when a Book Genesis phase has accumulated too much context.",
     parameters: Type.Object({
+      run_dir: Type.Optional(Type.String({ description: "Absolute path to the Book Genesis run directory" })),
       focus: Type.Optional(Type.String({ description: "What the compaction summary should emphasize" })),
     }),
     async execute(_toolCallId: string, params: any, _signal: any, _onUpdate: any, ctx: any) {
       const focus = params.focus?.trim() || "Keep the active Book Genesis phase, artifacts, and next action.";
+      const sessionKey = getSessionKey(ctx);
+      const runDir = params.run_dir ? stripQuotes(params.run_dir) : sessionKey ? activeRunBySession.get(sessionKey) : null;
       ctx.compact({
         customInstructions: focus,
+        onComplete: () => {
+          if (!runDir) return;
+          const run = readRunState(runDir);
+          if (run.status === "running") {
+            pi.sendUserMessage(buildAutoContinuePrompt(run, "tool-triggered context compaction completed"), { deliverAs: "followUp" });
+          }
+        },
       });
 
       return {
         content: [
           {
             type: "text",
-            text: "Requested Book Genesis compaction.",
+            text: "Requested Book Genesis compaction. The active phase will auto-continue after compaction when the run is still active.",
           },
         ],
       };
