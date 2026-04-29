@@ -6,6 +6,7 @@ import { PHASE_ROLE_MAP, type PhaseName, type RunState } from "./types.js";
 import { listArtifactTargets } from "./artifacts.js";
 import { summarizeStoryBible } from "./bible.js";
 import { getPresetForMode } from "./presets.js";
+import { buildResearchWebGuidance } from "./research-web.js";
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROMPTS_DIR = path.resolve(MODULE_DIR, "../../prompts/book-genesis");
@@ -123,7 +124,12 @@ export function buildPhasePrompt(run: RunState) {
       ]
     : null;
   const storyBibleSection = run.config.storyBibleEnabled
-    ? ["Story bible summary:", summarizeStoryBible(run)]
+    ? [
+        "Story bible summary:",
+        summarizeStoryBible(run),
+        "Story bible enforcement:",
+        "Preserve canonical characters, settings, promises, timeline facts, motifs, and glossary terms. If the manuscript changes those facts, update the story bible and expect /book-genesis bible-check to flag deterministic drift.",
+      ]
     : [
         "Story bible:",
         "disabled for this run. Do not create, update, or rely on story-bible artifacts.",
@@ -165,6 +171,7 @@ export function buildPhasePrompt(run: RunState) {
         ? preset.evaluationFocus.join(", ")
         : "Follow the phase contract and mode-specific artifact targets.",
     "",
+    ...(run.currentPhase === "research" ? [buildResearchWebGuidance(run), ""] : []),
     ...(independentEvalSection ? [...independentEvalSection, ""] : []),
     "Previous handoff:",
     readLastHandoff(run),
