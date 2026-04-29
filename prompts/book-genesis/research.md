@@ -7,6 +7,8 @@ Produce:
 - `research/bestseller-dna.md`
 
 Requirements:
+- use `book_genesis_web_search` for current market, comp-title, audience, and source discovery instead of relying on stale model memory
+- use `book_genesis_fetch_url` when a search result needs inspection beyond the snippet
 - infer or sharpen genre, audience, and expected word-count range
 - identify recent comp titles and the market gap this project should target
 - extract useful prose, pacing, and positioning notes into `bestseller-dna.md`
