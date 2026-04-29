@@ -61,7 +61,7 @@ export function buildSourceAudit(run: RunState): SourceAuditReport {
   const findings: HealthCheckResult[] = [];
   const unsupported = claims.filter((claim) => claim.supportLevel === "missing" && claim.risk !== "low");
   if (required && unsupported.length > 0) {
-    findings.push({ ok: false, severity: "warning", code: "unsupported_claims", message: `${unsupported.length} high/medium-risk claim(s) need stronger source support.`, remedy: "Record sources with /book-genesis source or revise unsupported claims." });
+    findings.push({ ok: false, severity: "warning", code: "unsupported_claims", message: `${unsupported.length} high/medium-risk claim(s) need stronger source support.`, remedy: "Record sources with /book-genesis source add or revise unsupported claims." });
   } else {
     findings.push({ ok: true, severity: "info", code: "source_audit_ready", message: required ? "Source audit completed for required mode." : "Source audit is optional for this mode." });
   }
