@@ -92,3 +92,42 @@ test("validatePhaseArtifacts rejects manuscripts when chapter numbering skips", 
     assert.equal(result.issues.some((issue) => issue.message.includes("chapter numbering")), true);
   });
 });
+
+test("validatePhaseArtifacts enforces targetWordCount when configured", () => {
+  withRun((run) => {
+    run.config.targetWordCount = 1000;
+
+    mkdirSync(path.join(run.rootDir, "manuscript", "chapter-briefs"), { recursive: true });
+    mkdirSync(path.join(run.rootDir, "manuscript", "chapters"), { recursive: true });
+    writeFileSync(path.join(run.rootDir, "manuscript", "chapter-briefs", "01-opening.md"), "# Brief 1\n");
+    writeFileSync(path.join(run.rootDir, "manuscript", "chapters", "01-opening.md"), "# Chapter 1\nShort.\n");
+    writeFileSync(path.join(run.rootDir, "manuscript", "full-manuscript.md"), "# Full Manuscript\n\n## Chapter 1\nToo short.\n");
+    writeFileSync(path.join(run.rootDir, "manuscript", "write-report.md"), "# Report\n");
+    writeFileSync(path.join(run.rootDir, "manuscript", "continuity-report.md"), "# Continuity\n");
+
+    const result = validatePhaseArtifacts(run, "write", []);
+    assert.equal(result.ok, false);
+    assert.equal(result.issues.some((issue) => issue.message.includes("word count")), true);
+  });
+});
+
+test("validatePhaseArtifacts flags obvious duplicated paragraphs in the manuscript", () => {
+  withRun((run) => {
+    mkdirSync(path.join(run.rootDir, "manuscript", "chapter-briefs"), { recursive: true });
+    mkdirSync(path.join(run.rootDir, "manuscript", "chapters"), { recursive: true });
+    writeFileSync(path.join(run.rootDir, "manuscript", "chapter-briefs", "01-opening.md"), "# Brief 1\n");
+    writeFileSync(path.join(run.rootDir, "manuscript", "chapters", "01-opening.md"), "# Chapter 1\n");
+
+    const repeated = "This is a long paragraph intended to simulate accidental duplication. ".repeat(8).trim();
+    writeFileSync(
+      path.join(run.rootDir, "manuscript", "full-manuscript.md"),
+      `# Full Manuscript\n\n${repeated}\n\n${repeated}\n\n${repeated}\n`,
+    );
+    writeFileSync(path.join(run.rootDir, "manuscript", "write-report.md"), "# Report\n");
+    writeFileSync(path.join(run.rootDir, "manuscript", "continuity-report.md"), "# Continuity\n");
+
+    const result = validatePhaseArtifacts(run, "write", []);
+    assert.equal(result.ok, false);
+    assert.equal(result.issues.some((issue) => issue.message.includes("repeat")), true);
+  });
+});

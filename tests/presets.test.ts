@@ -24,3 +24,13 @@ test("foundation artifacts omit the story bible when disabled in config", () => 
   const artifacts = getArtifactsForPhase("fiction", "foundation", { storyBibleEnabled: false });
   assert.equal(artifacts.includes("foundation/story-bible.md"), false);
 });
+
+test("evaluate artifacts include an independent evaluation pass by default", () => {
+  const artifacts = getArtifactsForPhase("fiction", "evaluate");
+  assert.equal(artifacts.includes("evaluations/independent-evaluation.md"), true);
+});
+
+test("evaluate artifacts omit independent evaluation when disabled", () => {
+  const artifacts = getArtifactsForPhase("fiction", "evaluate", { independentEvaluationPass: false });
+  assert.equal(artifacts.includes("evaluations/independent-evaluation.md"), false);
+});

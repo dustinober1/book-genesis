@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -26,14 +27,22 @@ import { buildCompactionSummary, buildPhasePrompt, buildSystemPrompt, parseRunMa
 import { PHASE_ORDER, type PhaseName, type RunState } from "./types.js";
 import { loadRunConfig } from "./config.js";
 import { formatArtifactValidationReport, validatePhaseArtifacts } from "./artifacts.js";
+import { buildAuditReport, formatAuditReport } from "./audit.js";
 import { upsertStoryBible } from "./bible.js";
+import { buildDoctorReport, formatDoctorReport } from "./doctor.js";
 import { writeExportPackage } from "./exports.js";
 import { ensureWorkspaceGitRepo, snapshotRunProgress } from "./git.js";
 import { validateKickoffIntake, writeKickoffBrief } from "./intake.js";
+import { compareDrafts, requestChapterRevision, requestWriteSampleCheckpoint } from "./interventions.js";
+import { writeManuscriptIntelligenceReport } from "./intelligence.js";
 import { writeKdpPackage } from "./kdp.js";
 import { recordDecision, recordSource } from "./ledger.js";
+import { buildShortStoryBrainstorm, writeShortStoryPackage } from "./promotion.js";
+import { readIndependentEvaluationScores, scoreDisagreement } from "./evaluation.js";
 
 const activeRunBySession = new Map<string, string>();
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const PACKAGE_ROOT = path.resolve(MODULE_DIR, "../..");
 
 function getSessionKey(ctx: unknown) {
   return (ctx as { sessionManager?: { getSessionFile?: () => string } })?.sessionManager?.getSessionFile?.() ?? null;
@@ -164,6 +173,20 @@ function isRunDirectoryCandidate(value: string) {
   return existsSync(path.join(absolute, ".book-genesis", "run.json"));
 }
 
+function resolveMigrationsRunDir(currentDir: string, candidate: string, ctx: unknown, messages?: unknown[]) {
+  const resolved = resolveRunDir(candidate, ctx, messages);
+  if (resolved) {
+    return resolved;
+  }
+
+  const localRunStatePath = path.join(currentDir, ".book-genesis", "run.json");
+  if (existsSync(localRunStatePath)) {
+    return currentDir;
+  }
+
+  return null;
+}
+
 function parseRunDirAndNote(args: string, ctx: unknown, messages?: unknown[]) {
   const { first, rest } = consumeFirstArg(args);
   if (first && isRunDirectoryCandidate(first)) {
@@ -177,6 +200,36 @@ function parseRunDirAndNote(args: string, ctx: unknown, messages?: unknown[]) {
     runDir: resolveRunDir("", ctx, messages),
     note: args.trim(),
   };
+}
+
+function parseOptionalRunDirAndRest(args: string, ctx: unknown, messages?: unknown[]) {
+  const { first, rest } = consumeFirstArg(args);
+  if (first && isRunDirectoryCandidate(first)) {
+    return {
+      runDir: resolveRunDir(first, ctx, messages),
+      rest,
+    };
+  }
+
+  return {
+    runDir: resolveRunDir("", ctx, messages),
+    rest: args.trim(),
+  };
+}
+
+function parseJsonFlag(args: string) {
+  return {
+    json: args.split(/\s+/).includes("--json"),
+    rest: args.replace(/(^|\s)--json(?=\s|$)/g, " ").trim(),
+  };
+}
+
+function parseSampleCount(args: string) {
+  const match = args.match(/(?:^|\s)--sample\s+(\d+)(?=\s|$)/);
+  if (!match) {
+    throw new Error("Usage: /book-genesis checkpoint write [run-dir] --sample <n>");
+  }
+  return Number(match[1]);
 }
 
 function buildSessionName(run: RunState) {
@@ -307,11 +360,11 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("book-genesis", {
-    description: "Manage autonomous Book Genesis runs: /book-genesis run|resume|status|stop|approve|reject|feedback|list-runs|export|kdp",
+    description: "Manage autonomous Book Genesis runs: /book-genesis run|resume|status|stop|approve|reject|feedback|list-runs|export|kdp|migrate|audit|doctor|revise-chapter|inspect-continuity|checkpoint|compare-drafts|short-story",
     getArgumentCompletions: (prefix: string) => {
       const parts = prefix.trim().split(/\s+/);
       if (parts.length <= 1) {
-        return ["run", "resume", "status", "stop", "approve", "reject", "feedback", "list-runs", "export", "kdp"]
+        return ["run", "resume", "status", "stop", "approve", "reject", "feedback", "list-runs", "export", "kdp", "audit", "doctor", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
           .filter((item) => item.startsWith(parts[0] ?? ""))
           .map((item) => ({ value: item, label: item }));
       }
@@ -389,6 +442,43 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           }
 
           sendStatus(pi, formatRunStatus(readRunState(runDir)));
+          return;
+        }
+
+        case "migrate": {
+          const trimmed = rest.trim();
+          if (trimmed === "--all") {
+            const runs = listRunDirs(process.cwd());
+            if (runs.length === 0) {
+              const currentDirRun = resolveMigrationsRunDir(process.cwd(), "", ctx, undefined);
+              if (!currentDirRun) {
+                sendStatus(pi, "No Book Genesis runs found to migrate.");
+                return;
+              }
+
+              const run = readRunState(currentDirRun);
+              sendStatus(pi, `Migration complete for ${run.id}. Run is now version ${run.version}.`);
+              return;
+            }
+
+            const lines = ["Migration complete."];
+            for (const runDir of runs) {
+              const run = readRunState(runDir);
+              lines.push(`- ${run.id}: version ${run.version}`);
+            }
+
+            sendStatus(pi, lines.join("\n"));
+            return;
+          }
+
+          const runDir = resolveMigrationsRunDir(process.cwd(), trimmed, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+
+          const run = readRunState(runDir);
+          sendStatus(pi, `Migration complete for ${run.id}. Run is now version ${run.version}.`);
           return;
         }
 
@@ -497,11 +587,137 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           const run = readRunState(runDir);
           const manifest = await writeKdpPackage(run);
           writeRunState(run);
+          const errorCount = manifest.issues.filter((issue) => issue.severity === "error").length;
           const warningCount = manifest.issues.filter((issue) => issue.severity === "warning").length;
           sendStatus(
             pi,
-            `Prepared KDP package for ${run.id} with ${manifest.files.length} files and ${warningCount} warnings.\n${manifest.files.join("\n")}`,
+            `Prepared KDP package for ${run.id} with ${manifest.files.length} files, ${errorCount} errors, and ${warningCount} warnings.\n${manifest.files.join("\n")}`,
           );
+          return;
+        }
+
+        case "audit": {
+          const parsedAudit = parseJsonFlag(rest);
+          const runDir = resolveRunDir(parsedAudit.rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+
+          const run = readRunState(runDir);
+          const report = buildAuditReport(run);
+          sendStatus(pi, parsedAudit.json ? JSON.stringify(report, null, 2) : formatAuditReport(report));
+          return;
+        }
+
+        case "doctor": {
+          const parsedDoctor = parseJsonFlag(rest);
+          const report = buildDoctorReport({
+            workspaceRoot: process.cwd(),
+            packageRoot: PACKAGE_ROOT,
+          });
+          sendStatus(pi, parsedDoctor.json ? JSON.stringify(report, null, 2) : formatDoctorReport(report));
+          return;
+        }
+
+        case "revise-chapter": {
+          const parsed = parseOptionalRunDirAndRest(rest, ctx);
+          if (!parsed.runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const { first: chapter, rest: notes } = consumeFirstArg(parsed.rest);
+          if (!chapter || !notes.trim()) {
+            ctx.ui.notify("Usage: /book-genesis revise-chapter [run-dir] <chapter> <notes>", "error");
+            return;
+          }
+          const run = readRunState(parsed.runDir);
+          const feedbackPath = requestChapterRevision(run, chapter, notes);
+          writeRunState(run);
+          sendStatus(pi, `Chapter revision queued for ${chapter}.\nFeedback: ${feedbackPath}`);
+          await launchPhaseSession(pi, ctx, run, `Targeted chapter revision requested for ${chapter}.`);
+          return;
+        }
+
+        case "inspect-continuity": {
+          const runDir = resolveRunDir(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const run = readRunState(runDir);
+          const outputPath = writeManuscriptIntelligenceReport(run);
+          sendStatus(pi, `Manuscript intelligence report written to ${outputPath}.`);
+          return;
+        }
+
+        case "checkpoint": {
+          const checkpoint = parseSubcommand(rest);
+          if (checkpoint.subcommand !== "write") {
+            ctx.ui.notify("Usage: /book-genesis checkpoint write [run-dir] --sample <n>", "error");
+            return;
+          }
+          const parsed = parseOptionalRunDirAndRest(checkpoint.rest.replace(/(?:^|\s)--sample\s+\d+(?=\s|$)/, " ").trim(), ctx);
+          const runDir = parsed.runDir;
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          let sample: number;
+          try {
+            sample = parseSampleCount(checkpoint.rest);
+          } catch (error) {
+            ctx.ui.notify((error as Error).message, "error");
+            return;
+          }
+          const run = readRunState(runDir);
+          requestWriteSampleCheckpoint(run, sample);
+          writeRunState(run);
+          sendStatus(pi, formatRunStatus(run));
+          return;
+        }
+
+        case "compare-drafts": {
+          const parsed = parseOptionalRunDirAndRest(rest, ctx);
+          if (!parsed.runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const { first: left, rest: rightRest } = consumeFirstArg(parsed.rest);
+          const { first: right } = consumeFirstArg(rightRest);
+          if (!left || !right) {
+            ctx.ui.notify("Usage: /book-genesis compare-drafts [run-dir] <left> <right>", "error");
+            return;
+          }
+          const report = compareDrafts(readRunState(parsed.runDir), left, right);
+          sendStatus(pi, `Draft comparison written to ${report.reportPath}.\nAdded lines: ${report.addedLines}\nRemoved lines: ${report.removedLines}`);
+          return;
+        }
+
+        case "short-story": {
+          const action = parseSubcommand(rest);
+          if (action.subcommand !== "brainstorm" && action.subcommand !== "package") {
+            ctx.ui.notify("Usage: /book-genesis short-story brainstorm [run-dir] [notes] OR /book-genesis short-story package [run-dir] <selected-concept>", "error");
+            return;
+          }
+          const parsed = parseOptionalRunDirAndRest(action.rest, ctx);
+          if (!parsed.runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const run = readRunState(parsed.runDir);
+          if (action.subcommand === "brainstorm") {
+            const brainstorm = buildShortStoryBrainstorm(run, parsed.rest);
+            sendStatus(pi, brainstorm.markdown);
+            return;
+          }
+
+          if (!parsed.rest.trim()) {
+            ctx.ui.notify("Usage: /book-genesis short-story package [run-dir] <selected-concept>", "error");
+            return;
+          }
+          const manifest = writeShortStoryPackage(run, parsed.rest);
+          sendStatus(pi, `Short-story lead magnet package created for "${manifest.selectedConcept}".\n${manifest.files.join("\n")}`);
           return;
         }
 
@@ -520,7 +736,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
         }
 
         default:
-          ctx.ui.notify("Usage: /book-genesis run|resume|status|stop|approve|reject|feedback|list-runs|export|kdp ...", "info");
+          ctx.ui.notify("Usage: /book-genesis run|resume|status|stop|approve|reject|feedback|list-runs|export|kdp|migrate|audit ...", "info");
       }
     },
   });
@@ -778,7 +994,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
       artifacts: Type.Optional(Type.Array(Type.String({ description: "Artifact file or directory path" }))),
       unresolved_issues: Type.Optional(Type.Array(Type.String({ description: "Anything still unresolved" }))),
       quality_gate: Type.Optional(Type.Object({
-        threshold: Type.Number(),
+        threshold: Type.Optional(Type.Number({ description: "Optional; defaults to the run's configured qualityThreshold." })),
         scores: Type.Object({
           marketFit: Type.Number(),
           structure: Type.Number(),
@@ -827,6 +1043,39 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
         };
       }
 
+      if (params.phase === "evaluate" && run.config.independentEvaluationPass) {
+        try {
+          const independent = readIndependentEvaluationScores(run);
+          const primaryScores = (params.quality_gate?.scores ?? {}) as Record<string, number>;
+          const disagreement = scoreDisagreement(primaryScores as any, independent.scores);
+
+          if (Object.keys(independent.scores).length < 4) {
+            return {
+              isError: true,
+              content: [{
+                type: "text",
+                text: "Independent evaluation is enabled, but evaluations/independent-evaluation.md did not include enough numeric score lines (expected at least 4 like marketFit: 88).",
+              }],
+            };
+          }
+
+          if (disagreement.meanAbsDelta !== null && disagreement.meanAbsDelta > 18) {
+            return {
+              isError: true,
+              content: [{
+                type: "text",
+                text: `Independent evaluation scores disagree strongly with the quality gate scores (mean abs delta ${disagreement.meanAbsDelta.toFixed(1)} across ${disagreement.compared} keys). Reconcile the two evaluations before completing the phase.`,
+              }],
+            };
+          }
+        } catch (error) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: `Independent evaluation is enabled, but could not read/parse it: ${(error as Error).message}` }],
+          };
+        }
+      }
+
       const artifacts = params.artifacts ?? [];
       const validation = validatePhaseArtifacts(run, params.phase as PhaseName, artifacts);
       if (!validation.ok) {
@@ -840,7 +1089,13 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
         summary: params.summary,
         artifacts,
         unresolvedIssues: params.unresolved_issues ?? [],
-        qualityGate: params.quality_gate,
+        qualityGate: params.quality_gate
+          ? {
+              ...params.quality_gate,
+              // Always use the run-configured quality threshold.
+              threshold: run.config.qualityThreshold,
+            }
+          : undefined,
       });
       writeRunState(run);
 

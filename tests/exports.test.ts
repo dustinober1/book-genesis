@@ -28,6 +28,7 @@ test("writeExportPackage always creates a markdown submission package and manife
     const manifest = await writeExportPackage(run);
     assert.equal(manifest.files.some((file) => file.endsWith("submission-manuscript.md")), true);
     assert.equal(manifest.files.some((file) => file.endsWith("export-manifest.json")), true);
+    assert.equal(manifest.files.some((file) => file.endsWith("publishing-readiness.md")), true);
     assert.match(readFileSync(manifest.files.find((file) => file.endsWith("submission-manuscript.md"))!, "utf8"), /Full Manuscript/);
   });
 });

@@ -116,6 +116,12 @@ export function buildPhasePrompt(run: RunState) {
   const phasePrompt = readPrompt(run.currentPhase);
   const artifactTargets = listArtifactTargets(run, run.currentPhase).map((item) => `- ${item}`).join("\n");
   const preset = getPresetForMode(run.config.bookMode);
+  const independentEvalSection = run.currentPhase === "evaluate" && run.config.independentEvaluationPass
+    ? [
+        "Independent evaluation:",
+        "Produce evaluations/independent-evaluation.md as a second-pass, fresh read. Be stricter and more adversarial than the primary evaluation so the quality gate is trustworthy.",
+      ]
+    : null;
   const storyBibleSection = run.config.storyBibleEnabled
     ? ["Story bible summary:", summarizeStoryBible(run)]
     : [
@@ -147,6 +153,7 @@ export function buildPhasePrompt(run: RunState) {
     `Idea: ${run.idea}`,
     `Config: ${JSON.stringify(run.config)}`,
     `Book mode: ${run.config.bookMode}`,
+    `Promotion: short-story ${run.config.promotion.shortStoryEnabled ? "enabled" : "disabled"}, purpose ${run.config.promotion.shortStoryPurpose}, max pages ${run.config.promotion.shortStoryMaxPages}`,
     "",
     "Required artifact targets:",
     artifactTargets,
@@ -158,6 +165,7 @@ export function buildPhasePrompt(run: RunState) {
         ? preset.evaluationFocus.join(", ")
         : "Follow the phase contract and mode-specific artifact targets.",
     "",
+    ...(independentEvalSection ? [...independentEvalSection, ""] : []),
     "Previous handoff:",
     readLastHandoff(run),
     "",

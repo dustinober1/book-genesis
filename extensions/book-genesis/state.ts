@@ -6,8 +6,11 @@ import {
   type ParsedIdeaInput,
   type PhaseCompletionPayload,
   type PhaseFailurePayload,
+  type ApprovalRequest,
+  type QualityGateRecord,
   type PhaseHistoryEntry,
   type PhaseName,
+  type ReviewerFeedbackEntry,
   type RunConfig,
   type RunState,
 } from "./types.js";
@@ -16,6 +19,9 @@ import { createQualityGate } from "./quality.js";
 
 const RUNS_DIRNAME = "book-projects";
 const STATE_DIRNAME = ".book-genesis";
+const CURRENT_RUN_STATE_VERSION = 1;
+const VALID_STATUSES = ["running", "stopped", "failed", "completed", "awaiting_approval"] as const;
+const VALID_HISTORY_STATUSES = ["running", "completed", "failed", "stopped"] as const;
 
 function nowIso() {
   return new Date().toISOString();
@@ -53,6 +59,331 @@ export function parseIdeaInput(raw: string): ParsedIdeaInput {
   return {
     language: "auto",
     idea: trimmed,
+  };
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asString(value: unknown) {
+  return typeof value === "string" ? value.trim() : undefined;
+}
+
+function asBoolean(value: unknown) {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function asNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function asStringArray(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+    .filter(Boolean);
+}
+
+function asPhaseName(value: unknown): PhaseName | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const lowered = value.toLowerCase().trim();
+  return PHASE_ORDER.includes(lowered as PhaseName) ? (lowered as PhaseName) : undefined;
+}
+
+function normalizePhaseMap<T>(value: unknown, factory: () => T, normalize: (item: unknown) => T): Record<PhaseName, T> {
+  const base = createPhaseMap(factory);
+  if (!isObject(value)) {
+    return base;
+  }
+
+  for (const phase of PHASE_ORDER) {
+    if (phase in value) {
+      base[phase] = normalize(value[phase]);
+    }
+  }
+
+  return base;
+}
+
+function normalizeRunConfig(raw: unknown): RunConfig {
+  if (!isObject(raw)) {
+    return DEFAULT_RUN_CONFIG;
+  }
+
+  const source = raw as Partial<RunConfig>;
+  const kdpSource = isObject(source.kdp) ? source.kdp : {};
+  const promotionSource = isObject(source.promotion) ? source.promotion : {};
+  const kdp = {
+    ...DEFAULT_RUN_CONFIG.kdp,
+    ...kdpSource,
+    keywords: asStringArray((kdpSource as { keywords?: unknown }).keywords).slice(0, 7),
+    categories: asStringArray((kdpSource as { categories?: unknown }).categories),
+  };
+  const promotion = {
+    ...DEFAULT_RUN_CONFIG.promotion,
+    ...promotionSource,
+  };
+
+  const approvalPhases = asStringArray(source.approvalPhases).filter((phase) => asPhaseName(phase));
+
+  return {
+    ...DEFAULT_RUN_CONFIG,
+    ...source,
+    approvalPhases: approvalPhases.length > 0 ? approvalPhases.map((phase) => phase as PhaseName) : DEFAULT_RUN_CONFIG.approvalPhases,
+    kdp,
+    promotion,
+  };
+}
+
+function normalizeHistory(value: unknown): PhaseHistoryEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (!isObject(entry)) {
+        return null;
+      }
+
+      const phase = asPhaseName(entry.phase);
+      const attempt = asNumber(entry.attempt) ?? 1;
+      const status = asString(entry.status);
+      const startedAt = asString(entry.startedAt) ?? nowIso();
+      const endedAt = asString(entry.endedAt);
+      const summary = asString(entry.summary) ?? undefined;
+      const artifacts = asStringArray(entry.artifacts);
+      const unresolvedIssues = asStringArray(entry.unresolvedIssues);
+
+      if (!phase) {
+        return null;
+      }
+
+      return {
+        phase,
+        attempt,
+        status: VALID_HISTORY_STATUSES.includes(status as (typeof VALID_HISTORY_STATUSES)[number])
+          ? (status as (typeof VALID_HISTORY_STATUSES)[number])
+          : "completed",
+        startedAt,
+        endedAt,
+        summary,
+        artifacts,
+        unresolvedIssues,
+      };
+    })
+    .filter(Boolean) as PhaseHistoryEntry[];
+}
+
+function normalizeReviewerFeedback(value: unknown): ReviewerFeedbackEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (!isObject(entry)) {
+        return null;
+      }
+
+      const id = asString(entry.id);
+      const phase = asPhaseName(entry.phase) || "completed";
+      const artifactPath = asString(entry.artifactPath);
+      const note = asString(entry.note);
+      const recordedAt = asString(entry.recordedAt);
+      if (!id || !artifactPath || !note || !recordedAt) {
+        return null;
+      }
+
+      return { id, phase, note, artifactPath, recordedAt };
+    })
+    .filter((entry): entry is ReviewerFeedbackEntry => Boolean(entry));
+}
+
+function inferCurrentPhase(completedPhases: PhaseName[], status?: string) {
+  if (status === "completed") {
+    return "deliver";
+  }
+
+  if (completedPhases.length === 0) {
+    return PHASE_ORDER[0];
+  }
+
+  const index = Math.max(...completedPhases.map((phase) => PHASE_ORDER.indexOf(phase)));
+  if (index === -1) {
+    return PHASE_ORDER[0];
+  }
+
+  return PHASE_ORDER[Math.min(index + 1, PHASE_ORDER.length - 1)] ?? PHASE_ORDER[0];
+}
+
+function inferNextAction(run: Pick<RunState, "status" | "currentPhase" | "config">) {
+  if (run.status === "running") {
+    return `Resume ${run.currentPhase} phase.`;
+  }
+  if (run.status === "awaiting_approval") {
+    return `Run is waiting for approval after ${run.currentPhase}.`;
+  }
+  if (run.status === "stopped") {
+    return `Run paused at ${run.currentPhase} phase.`;
+  }
+  if (run.status === "failed") {
+    return "Manual review required.";
+  }
+  if (run.status === "completed") {
+    return "Run complete.";
+  }
+  return `Launch ${run.currentPhase} phase.`;
+}
+
+function backupMigratedRun(statePath: string, contents: string) {
+  const backupPath = `${statePath}.${nowIso().replace(/[:.]/g, "-")}.bak`;
+  writeFileSync(backupPath, contents, "utf8");
+}
+
+function runNeedsMigration(runDir: string, raw: unknown, normalized: RunState) {
+  if (!isObject(raw)) {
+    return { needsMigration: true, reason: "run file is not an object" };
+  }
+
+  if ((raw as { version?: unknown }).version !== CURRENT_RUN_STATE_VERSION) {
+    return { needsMigration: true, reason: "version mismatch" };
+  }
+
+  const inferredRoot = path.resolve(runDir);
+  const rootPath = path.join(inferredRoot, STATE_DIRNAME, "run.json");
+  const rawState = raw as Record<string, unknown>;
+
+  if (!rawState.id || asString(rawState.id) !== normalized.id) {
+    return { needsMigration: true, reason: "id missing" };
+  }
+
+  if (typeof rawState.currentPhase !== "string" || !PHASE_ORDER.includes(rawState.currentPhase as PhaseName)) {
+    return { needsMigration: true, reason: "currentPhase missing or invalid" };
+  }
+
+  if (!Array.isArray(rawState.completedPhases) || !Array.isArray(rawState.history)) {
+    return { needsMigration: true, reason: "legacy bookkeeping missing" };
+  }
+
+  if (!Array.isArray(rawState.qualityGates)) {
+    return { needsMigration: true, reason: "quality gates missing" };
+  }
+
+  if (!Array.isArray(rawState.reviewerFeedback)) {
+    return { needsMigration: true, reason: "reviewer feedback missing" };
+  }
+
+  if (asString(rawState.statePath) !== rootPath) {
+    return { needsMigration: true, reason: "statePath missing or stale" };
+  }
+
+  return { needsMigration: false };
+}
+
+function normalizeRunState(runDir: string, raw: unknown): { run: RunState; needsMigration: boolean; fromVersion: number | null; toVersion: number; } {
+  const runDirPath = path.resolve(runDir);
+  const rawRun = isObject(raw) ? raw : {};
+  const inferredWorkspaceRoot = path.resolve(runDirPath, "..", "..");
+  const statePath = path.join(runDirPath, STATE_DIRNAME, "run.json");
+  const ledgerPath = path.join(runDirPath, STATE_DIRNAME, "ledger.json");
+  const config = normalizeRunConfig(rawRun.config);
+  const completedPhases = asStringArray(rawRun.completedPhases).filter((phase) => asPhaseName(phase)) as PhaseName[];
+  const legacyCurrentPhase = asPhaseName((rawRun as { phase?: unknown }).phase);
+  const normalizedCurrentPhase = asPhaseName(rawRun.currentPhase) || legacyCurrentPhase
+    || inferCurrentPhase(completedPhases, asString(rawRun.status));
+  const rawStatus = asString(rawRun.status);
+  const status = VALID_STATUSES.includes(rawStatus as (typeof VALID_STATUSES)[number])
+    ? (rawStatus as RunState["status"])
+    : "running";
+  const reviewerFeedback = normalizeReviewerFeedback(rawRun.reviewerFeedback);
+
+  const run: RunState = {
+    version: CURRENT_RUN_STATE_VERSION,
+    id: asString(rawRun.id) || path.basename(runDirPath),
+    slug: asString(rawRun.slug) || path.basename(runDirPath),
+    title: asString(rawRun.title) || asString(rawRun.slug)?.replace(/-/g, " ") || path.basename(runDirPath),
+    idea: asString(rawRun.idea) || "",
+    language: asString(rawRun.language) || "auto",
+    workspaceRoot: asString(rawRun.workspaceRoot) || inferredWorkspaceRoot,
+    rootDir: asString(rawRun.rootDir) || runDirPath,
+    statePath,
+    ledgerPath,
+    status,
+    currentPhase: normalizedCurrentPhase,
+    completedPhases: Array.from(new Set(completedPhases)),
+    attempts: normalizePhaseMap(rawRun.attempts, () => 0, (item) => asNumber(item) ?? 0),
+    artifacts: normalizePhaseMap(rawRun.artifacts, () => [], (item) => asStringArray(item)),
+    unresolvedIssues: asStringArray(rawRun.unresolvedIssues),
+    nextAction: asString(rawRun.nextAction) || inferNextAction({
+      status,
+      currentPhase: normalizedCurrentPhase,
+      config,
+    }),
+    createdAt: asString(rawRun.createdAt) || nowIso(),
+    updatedAt: asString(rawRun.updatedAt) || nowIso(),
+    stopRequested: asBoolean(rawRun.stopRequested) ?? false,
+    lastError: asString(rawRun.lastError),
+    lastHandoffPath: asString(rawRun.lastHandoffPath),
+    storyBiblePath: asString(rawRun.storyBiblePath),
+    storyBibleJsonPath: asString(rawRun.storyBibleJsonPath),
+    lastExportManifestPath: asString(rawRun.lastExportManifestPath),
+    lastKdpPackageManifestPath: asString(rawRun.lastKdpPackageManifestPath),
+    approval: isObject(rawRun.approval)
+      ? {
+          phase: asPhaseName(rawRun.approval.phase) || normalizedCurrentPhase,
+          requestedAt: asString(rawRun.approval.requestedAt) || nowIso(),
+          reason: asString(rawRun.approval.reason) || "System migration update.",
+          status: (asString(rawRun.approval.status) as ApprovalRequest["status"]) || "pending",
+          nextPhase: asPhaseName((rawRun.approval as { nextPhase?: unknown }).nextPhase) || null,
+          completionPending: asBoolean((rawRun.approval as { completionPending?: unknown }).completionPending),
+        }
+      : undefined,
+    reviewerFeedback,
+    pendingReviewerRevision: isObject(rawRun.pendingReviewerRevision)
+      ? {
+          requestedAt: asString(rawRun.pendingReviewerRevision.requestedAt) || nowIso(),
+          artifactPath: asString(rawRun.pendingReviewerRevision.artifactPath) || "",
+          note: asString(rawRun.pendingReviewerRevision.note) || "",
+          requestedFrom: asPhaseName(rawRun.pendingReviewerRevision.requestedFrom) || "completed",
+        }
+      : undefined,
+    history: normalizeHistory(rawRun.history),
+    config,
+    qualityGates: Array.isArray((rawRun as { qualityGates?: unknown }).qualityGates)
+      ? ((rawRun as { qualityGates?: QualityGateRecord[] }).qualityGates ?? [])
+      : [],
+    revisionCycle: asNumber((rawRun as { revisionCycle?: unknown }).revisionCycle) ?? 0,
+    git: isObject(rawRun.git)
+      ? {
+          repoRoot: asString(rawRun.git.repoRoot),
+          initializedByRuntime: asBoolean(rawRun.git.initializedByRuntime),
+          lastSnapshotCommit: asString(rawRun.git.lastSnapshotCommit),
+        }
+      : undefined,
+  };
+
+  if (run.currentPhase === "kickoff" && run.status === "completed") {
+    run.status = "completed";
+    run.nextAction = "Run complete.";
+  }
+
+  if (!run.artifacts) {
+    run.artifacts = createPhaseMap(() => []);
+  }
+
+  return {
+    run,
+    needsMigration: runNeedsMigration(runDirPath, rawRun, run).needsMigration,
+    fromVersion: isObject(rawRun) && typeof rawRun.version === "number" ? rawRun.version : null,
+    toVersion: CURRENT_RUN_STATE_VERSION,
   };
 }
 
@@ -138,8 +469,19 @@ export function readRunState(runDir: string) {
     throw new Error(`Run state not found at ${statePath}`);
   }
 
-  const run = JSON.parse(readFileSync(statePath, "utf8")) as RunState;
-  run.reviewerFeedback ??= [];
+  const rawContents = readFileSync(statePath, "utf8");
+  const migration = normalizeRunState(runDir, JSON.parse(rawContents));
+  const run = migration.run;
+
+  if (migration.needsMigration) {
+    try {
+      backupMigratedRun(statePath, rawContents);
+      writeRunState(run);
+    } catch {
+      // Fall through and return best-effort normalized state if write fails.
+    }
+  }
+
   return run;
 }
 
@@ -402,7 +744,11 @@ export function completeCurrentPhase(run: RunState, payload: PhaseCompletionPayl
   writeHandoff(run, phase, payload.summary, artifacts, unresolvedIssues);
 
   if (phase === "evaluate" && payload.qualityGate) {
-    const gate = createQualityGate(run.config.bookMode, payload.qualityGate);
+    // Threshold is config-driven; ignore any caller-supplied value.
+    const gate = createQualityGate(run.config.bookMode, {
+      ...payload.qualityGate,
+      threshold: run.config.qualityThreshold,
+    });
     run.qualityGates.push(gate);
 
     if (!gate.passed) {

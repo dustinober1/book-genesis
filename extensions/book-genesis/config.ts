@@ -9,6 +9,7 @@ export const DEFAULT_RUN_CONFIG: RunConfig = {
   qualityThreshold: 85,
   maxRevisionCycles: 2,
   researchDepth: "standard",
+  independentEvaluationPass: true,
   bookMode: "fiction",
   storyBibleEnabled: true,
   approvalPhases: [],
@@ -23,6 +24,11 @@ export const DEFAULT_RUN_CONFIG: RunConfig = {
     keywords: [],
     categories: [],
   },
+  promotion: {
+    shortStoryEnabled: true,
+    shortStoryMaxPages: 15,
+    shortStoryPurpose: "lead-magnet",
+  },
 };
 
 const VALID_BOOK_MODES = new Set<RunConfig["bookMode"]>([
@@ -35,6 +41,11 @@ const VALID_BOOK_MODES = new Set<RunConfig["bookMode"]>([
 
 const VALID_EXPORT_FORMATS = new Set<RunConfig["exportFormats"][number]>(["md", "docx", "epub"]);
 const VALID_KDP_FORMATS = new Set<NonNullable<KdpConfig["formats"]>[number]>(["ebook", "paperback"]);
+const VALID_SHORT_STORY_PURPOSES = new Set<RunConfig["promotion"]["shortStoryPurpose"]>([
+  "lead-magnet",
+  "world-teaser",
+  "content-series",
+]);
 
 function assertPositiveInteger(name: string, value: number) {
   if (!Number.isInteger(value) || value < 1) {
@@ -114,6 +125,28 @@ function normalizeKdpConfig(value: Partial<KdpConfig> | undefined): KdpConfig {
   return config;
 }
 
+function normalizePromotionConfig(value: Partial<RunConfig["promotion"]> | undefined): RunConfig["promotion"] {
+  const config: RunConfig["promotion"] = {
+    ...DEFAULT_RUN_CONFIG.promotion,
+    ...value,
+  };
+
+  if (typeof config.shortStoryEnabled !== "boolean") {
+    throw new Error("promotion.shortStoryEnabled must be a boolean.");
+  }
+
+  assertPositiveInteger("promotion.shortStoryMaxPages", config.shortStoryMaxPages);
+  if (config.shortStoryMaxPages > 15) {
+    throw new Error("promotion.shortStoryMaxPages must be 15 or less.");
+  }
+
+  if (!VALID_SHORT_STORY_PURPOSES.has(config.shortStoryPurpose)) {
+    throw new Error("promotion.shortStoryPurpose must be lead-magnet, world-teaser, or content-series.");
+  }
+
+  return config;
+}
+
 function normalizeConfig(value: Partial<RunConfig>): RunConfig {
   const config: RunConfig = { ...DEFAULT_RUN_CONFIG, ...value };
 
@@ -127,6 +160,10 @@ function normalizeConfig(value: Partial<RunConfig>): RunConfig {
 
   if (config.researchDepth !== "standard" && config.researchDepth !== "deep") {
     throw new Error("researchDepth must be standard or deep.");
+  }
+
+  if (typeof config.independentEvaluationPass !== "boolean") {
+    throw new Error("independentEvaluationPass must be a boolean.");
   }
 
   if (!VALID_BOOK_MODES.has(config.bookMode)) {
@@ -182,6 +219,7 @@ function normalizeConfig(value: Partial<RunConfig>): RunConfig {
   config.approvalPhases = config.approvalPhases.map((entry) => entry.trim()) as RunConfig["approvalPhases"];
   config.exportFormats = config.exportFormats.map((entry) => entry.trim()) as RunConfig["exportFormats"];
   config.kdp = normalizeKdpConfig(value.kdp);
+  config.promotion = normalizePromotionConfig(value.promotion);
 
   return config;
 }

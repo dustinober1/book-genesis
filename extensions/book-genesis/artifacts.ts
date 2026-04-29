@@ -5,6 +5,24 @@ import type { ArtifactValidationIssue, ArtifactValidationResult, PhaseName, RunS
 import { getArtifactsForPhase } from "./presets.js";
 
 const PLACEHOLDER_PATTERNS = [/\bTODO\b/i, /\bTBD\b/i, /\bplaceholder\b/i, /\blorem ipsum\b/i];
+const WORD_COUNT_TOLERANCE = 0.4;
+
+function markdownToPlainText(markdown: string) {
+  return markdown
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^[*-]\s+/gm, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\r?\n+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function countWords(value: string) {
+  return value.trim().split(/\s+/).filter(Boolean).length;
+}
 
 function normalizeRelativePath(run: RunState, value: string) {
   const trimmed = value.trim();
@@ -36,6 +54,81 @@ function validateSequentialChapterNames(run: RunState, issues: ArtifactValidatio
       break;
     }
   }
+}
+
+function validateTargetWordCount(run: RunState, issues: ArtifactValidationIssue[]) {
+  const target = run.config.targetWordCount;
+  if (!target) {
+    return;
+  }
+
+  const manuscriptPath = path.join(run.rootDir, "manuscript", "full-manuscript.md");
+  if (!existsSync(manuscriptPath)) {
+    return;
+  }
+
+  const plain = markdownToPlainText(readFileSync(manuscriptPath, "utf8"));
+  const words = countWords(plain);
+  if (!words) {
+    return;
+  }
+
+  const min = Math.floor(target * (1 - WORD_COUNT_TOLERANCE));
+  const max = Math.ceil(target * (1 + WORD_COUNT_TOLERANCE));
+
+  if (words < min) {
+    issues.push({
+      code: "missing_required_target",
+      target: "manuscript/full-manuscript.md",
+      message: `Manuscript word count is ${words}, below the configured target band (${min}-${max} words).`,
+    });
+    return;
+  }
+
+  if (words > max) {
+    issues.push({
+      code: "missing_required_target",
+      target: "manuscript/full-manuscript.md",
+      message: `Manuscript word count is ${words}, above the configured target band (${min}-${max} words).`,
+    });
+  }
+}
+
+function validateDuplicateParagraphs(run: RunState, issues: ArtifactValidationIssue[]) {
+  const manuscriptPath = path.join(run.rootDir, "manuscript", "full-manuscript.md");
+  if (!existsSync(manuscriptPath)) {
+    return;
+  }
+
+  const markdown = readFileSync(manuscriptPath, "utf8");
+  const paragraphs = markdown
+    .split(/\n{2,}/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+    .filter((chunk) => !chunk.startsWith("#"))
+    .map((chunk) => chunk.replace(/\s+/g, " ").trim())
+    .filter((chunk) => chunk.length >= 240);
+
+  if (paragraphs.length < 3) {
+    return;
+  }
+
+  const counts = new Map<string, number>();
+  for (const paragraph of paragraphs) {
+    counts.set(paragraph, (counts.get(paragraph) ?? 0) + 1);
+  }
+
+  const repeats = [...counts.entries()].filter(([, count]) => count >= 3);
+  if (repeats.length === 0) {
+    return;
+  }
+
+  const worst = repeats.sort((a, b) => b[1] - a[1])[0];
+  issues.push({
+    code: "placeholder_text",
+    target: "manuscript/full-manuscript.md",
+    message: `Manuscript appears to repeat at least one long paragraph ${worst[1]} times. Remove accidental duplication before completing the phase.`,
+  });
 }
 
 function validateTarget(
@@ -115,6 +208,7 @@ export function validatePhaseArtifacts(
 ): ArtifactValidationResult {
   const requiredTargets = getArtifactsForPhase(run.config.bookMode, phase, {
     storyBibleEnabled: run.config.storyBibleEnabled,
+    independentEvaluationPass: run.config.independentEvaluationPass,
   }) ?? [];
   const issues: ArtifactValidationIssue[] = [];
 
@@ -141,6 +235,8 @@ export function validatePhaseArtifacts(
     }
 
     validateSequentialChapterNames(run, issues);
+    validateTargetWordCount(run, issues);
+    validateDuplicateParagraphs(run, issues);
   }
 
   return { ok: issues.length === 0, issues };
@@ -149,6 +245,7 @@ export function validatePhaseArtifacts(
 export function listArtifactTargets(run: RunState, phase: PhaseName) {
   return getArtifactsForPhase(run.config.bookMode, phase, {
     storyBibleEnabled: run.config.storyBibleEnabled,
+    independentEvaluationPass: run.config.independentEvaluationPass,
   }) ?? [];
 }
 

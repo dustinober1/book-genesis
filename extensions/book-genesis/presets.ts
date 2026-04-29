@@ -2,6 +2,7 @@ import type { BookMode, PhaseName } from "./types.js";
 
 interface ArtifactOptions {
   storyBibleEnabled?: boolean;
+  independentEvaluationPass?: boolean;
 }
 
 export interface BookPreset {
@@ -18,6 +19,7 @@ const FICTION_FOUNDATION = [
   "foundation/reader-personas.md",
   "foundation/voice-dna.md",
   "foundation/story-bible.md",
+  "foundation/story-bible.json",
 ];
 
 const NONFICTION_FOUNDATION = [
@@ -25,6 +27,7 @@ const NONFICTION_FOUNDATION = [
   "foundation/outline.md",
   "foundation/reader-personas.md",
   "foundation/story-bible.md",
+  "foundation/story-bible.json",
 ];
 
 const PRESETS: Record<BookMode, BookPreset> = {
@@ -122,7 +125,7 @@ export function getArtifactsForPhase(mode: BookMode, phase: PhaseName, options: 
   if (phase === "foundation") {
     const artifacts = getPresetForMode(mode).foundationArtifacts;
     if (options.storyBibleEnabled === false) {
-      return artifacts.filter((artifact) => artifact !== "foundation/story-bible.md");
+      return artifacts.filter((artifact) => artifact !== "foundation/story-bible.md" && artifact !== "foundation/story-bible.json");
     }
 
     return artifacts;
@@ -130,6 +133,14 @@ export function getArtifactsForPhase(mode: BookMode, phase: PhaseName, options: 
 
   if (phase === "deliver") {
     return getPresetForMode(mode).deliveryArtifacts;
+  }
+
+  if (phase === "evaluate") {
+    const base = [...PHASE_DEFAULTS.evaluate];
+    if (options.independentEvaluationPass !== false) {
+      base.push("evaluations/independent-evaluation.md");
+    }
+    return base;
   }
 
   return PHASE_DEFAULTS[phase];

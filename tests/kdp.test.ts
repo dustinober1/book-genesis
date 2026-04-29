@@ -44,6 +44,7 @@ test("writeKdpPackage creates a KDP delivery package with copied assets and meta
     assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/kdp-metadata.json")), true);
     assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/kindle-ebook.epub")), true);
     assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/paperback-interior.docx")), true);
+    assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/publishing-readiness.md")), true);
     assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/kdp-cover-prompts.md")), true);
     assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/kdp-cover-specs.md")), true);
     assert.equal(typeof run.lastKdpPackageManifestPath, "string");

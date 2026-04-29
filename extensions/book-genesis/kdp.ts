@@ -2,6 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import path from "node:path";
 
 import { writeExportPackage } from "./exports.js";
+import { writePublishingReadinessReport } from "./publishing.js";
 import type {
   ExportFormat,
   KdpPackageManifest,
@@ -12,6 +13,7 @@ import type {
 
 const KDP_DESCRIPTION_CHAR_LIMIT = 4000;
 const KDP_KEYWORD_LIMIT = 7;
+const PLACEHOLDER_PATTERN = /\b(TODO|TBD|placeholder|lorem ipsum)\b/i;
 
 const KDP_SOURCE_LINKS = [
   "https://kdp.amazon.com/en_US/help/topic/G200641240",
@@ -182,7 +184,7 @@ function buildIssues(run: RunState, description: string, keywords: string[], cat
 
   if (!run.config.kdp.authorName) {
     issues.push({
-      severity: "warning",
+      severity: "error",
       code: "missing_author_name",
       message: "Set kdp.authorName before publishing so the metadata package matches the KDP listing.",
     });
@@ -190,13 +192,19 @@ function buildIssues(run: RunState, description: string, keywords: string[], cat
 
   if (!description) {
     issues.push({
-      severity: "warning",
+      severity: "error",
       code: "missing_description",
       message: "No KDP description is available. Add kdp.description or refine delivery/package-summary.md.",
     });
+  } else if (PLACEHOLDER_PATTERN.test(description)) {
+    issues.push({
+      severity: "error",
+      code: "description_placeholder",
+      message: "KDP description contains placeholder text. Replace TODO/TBD placeholders before publishing.",
+    });
   } else if (description.length > KDP_DESCRIPTION_CHAR_LIMIT) {
     issues.push({
-      severity: "warning",
+      severity: "error",
       code: "description_too_long",
       message: `KDP descriptions are limited to ${KDP_DESCRIPTION_CHAR_LIMIT} characters. Current description is ${description.length}.`,
     });
@@ -210,13 +218,13 @@ function buildIssues(run: RunState, description: string, keywords: string[], cat
 
   if (keywords.length === 0) {
     issues.push({
-      severity: "warning",
+      severity: "error",
       code: "missing_keywords",
       message: "No explicit kdp.keywords are configured. Fill all seven keyword slots before publishing.",
     });
   } else if (keywords.length > KDP_KEYWORD_LIMIT) {
     issues.push({
-      severity: "warning",
+      severity: "error",
       code: "too_many_keywords",
       message: `KDP supports up to ${KDP_KEYWORD_LIMIT} keyword slots. Current config has ${keywords.length}.`,
     });
@@ -250,7 +258,7 @@ function buildIssues(run: RunState, description: string, keywords: string[], cat
   if (targets.includes("paperback")) {
     if (!run.config.kdp.trimSize) {
       issues.push({
-        severity: "warning",
+        severity: "error",
         code: "missing_trim_size",
         message: "Paperback packaging is enabled but kdp.trimSize is not set.",
       });
@@ -258,7 +266,7 @@ function buildIssues(run: RunState, description: string, keywords: string[], cat
       const parsed = parseTrimSize(run.config.kdp.trimSize);
       if (!parsed) {
         issues.push({
-          severity: "warning",
+          severity: "error",
           code: "invalid_trim_size",
           message: `Could not parse kdp.trimSize "${run.config.kdp.trimSize}". Use a form like "6 x 9".`,
         });
@@ -559,6 +567,11 @@ export async function writeKdpPackage(run: RunState): Promise<KdpPackageManifest
   const copiedMarkdownPath = path.join(kdpDir, "manuscript-source.md");
   copyFileSync(sourceMarkdownPath, copiedMarkdownPath);
   copiedAssets.push(copiedMarkdownPath);
+
+  const readinessPath = writePublishingReadinessReport(run);
+  const copiedReadinessPath = path.join(kdpDir, "publishing-readiness.md");
+  copyFileSync(readinessPath, copiedReadinessPath);
+  copiedAssets.push(copiedReadinessPath);
 
   if (targets.includes("ebook")) {
     const sourceEpubPath = path.join(run.rootDir, "delivery", "submission-manuscript.epub");

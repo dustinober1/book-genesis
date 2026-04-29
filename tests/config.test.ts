@@ -24,6 +24,9 @@ test("loadRunConfig returns new defaults when config file is absent", () => {
     assert.deepEqual(config.exportFormats, ["md", "docx", "epub"]);
     assert.deepEqual(config.kdp.formats, ["ebook", "paperback"]);
     assert.equal(config.kdp.bleed, false);
+    assert.equal(config.promotion.shortStoryEnabled, true);
+    assert.equal(config.promotion.shortStoryMaxPages, 15);
+    assert.equal(config.promotion.shortStoryPurpose, "lead-magnet");
   });
 });
 
@@ -43,6 +46,11 @@ test("loadRunConfig normalizes new book-writing fields", () => {
         keywords: ["founder memoir", "startup lessons"],
         categories: ["Biographies & Memoirs"],
       },
+      promotion: {
+        shortStoryEnabled: true,
+        shortStoryMaxPages: 12,
+        shortStoryPurpose: "world-teaser",
+      },
     }));
 
     const config = loadRunConfig(workspace);
@@ -54,6 +62,8 @@ test("loadRunConfig normalizes new book-writing fields", () => {
     assert.equal(config.kdp.trimSize, "6 x 9");
     assert.equal(config.kdp.bleed, true);
     assert.equal(config.kdp.authorName, "Jane Doe");
+    assert.equal(config.promotion.shortStoryMaxPages, 12);
+    assert.equal(config.promotion.shortStoryPurpose, "world-teaser");
   });
 });
 

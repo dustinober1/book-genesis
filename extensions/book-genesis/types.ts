@@ -119,6 +119,7 @@ export interface RunConfig {
   qualityThreshold: number;
   maxRevisionCycles: number;
   researchDepth: ResearchDepth;
+  independentEvaluationPass: boolean;
   targetWordCount?: number;
   audience?: string;
   tone?: string;
@@ -131,6 +132,7 @@ export interface RunConfig {
   gitAutoCommit: boolean;
   gitCommitPaths: string[];
   kdp: KdpConfig;
+  promotion: PromotionConfig;
 }
 
 export interface KdpConfig {
@@ -141,6 +143,14 @@ export interface KdpConfig {
   description?: string;
   keywords: string[];
   categories: string[];
+}
+
+export type ShortStoryPurpose = "lead-magnet" | "world-teaser" | "content-series";
+
+export interface PromotionConfig {
+  shortStoryEnabled: boolean;
+  shortStoryMaxPages: number;
+  shortStoryPurpose: ShortStoryPurpose;
 }
 
 export interface KickoffIntake {
@@ -317,7 +327,7 @@ export interface ExportManifest {
 }
 
 export interface KdpPreflightIssue {
-  severity: "info" | "warning";
+  severity: "info" | "warning" | "error";
   code: string;
   message: string;
 }
@@ -334,4 +344,64 @@ export interface KdpPackageManifest {
   coverPromptsPath: string;
   coverSpecsPath: string;
   issues: KdpPreflightIssue[];
+}
+
+export type HealthCheckSeverity = "info" | "warning" | "error";
+
+export interface HealthCheckResult {
+  ok: boolean;
+  severity: HealthCheckSeverity;
+  code: string;
+  message: string;
+  remedy?: string;
+}
+
+export interface DoctorReport {
+  ok: boolean;
+  generatedAt: string;
+  workspaceRoot: string;
+  packageRoot: string;
+  results: HealthCheckResult[];
+}
+
+export type ManuscriptFindingSeverity = "info" | "warning" | "error";
+
+export interface ManuscriptIntelligenceFinding {
+  severity: ManuscriptFindingSeverity;
+  code: string;
+  target: string;
+  evidence: string;
+  suggestedAction: string;
+}
+
+export interface ManuscriptIntelligenceReport {
+  generatedAt: string;
+  runId: string;
+  findings: ManuscriptIntelligenceFinding[];
+}
+
+export interface ShortStoryConcept {
+  title: string;
+  hook: string;
+  emotionalPromise: string;
+  protagonistPov: string;
+  connectionToBook: string;
+  spoilerRisk: "low" | "medium" | "high";
+  websitePositioning: string;
+  recommended: boolean;
+}
+
+export interface ShortStoryBrainstorm {
+  runId: string;
+  purpose: ShortStoryPurpose;
+  maxPages: number;
+  targetWords: string;
+  concepts: ShortStoryConcept[];
+  markdown: string;
+}
+
+export interface ShortStoryPackageManifest {
+  files: string[];
+  selectedConcept: string;
+  maxPages: number;
 }
