@@ -39,7 +39,11 @@ Command arguments that contain spaces should be quoted. Paths can be absolute or
 | `/book-genesis run` | Start a new autonomous book run. |
 | `/book-genesis resume` | Continue the current run or launch the next phase. |
 | `/book-genesis status` | Show run state, phase, approval, feedback, and next action. |
+| `/book-genesis next` | Recommend the single next operator command. |
+| `/book-genesis dashboard` | Write a run dashboard with readiness and next action. |
+| `/book-genesis map` | Write a Mermaid project map for the run. |
 | `/book-genesis doctor` | Check package, workspace, config, dependencies, and nearby extension health. |
+| `/book-genesis doctor-run` | Diagnose one run's state, artifacts, sources, and final readiness. |
 | `/book-genesis init-config` | Write a mode-specific starter config and Markdown guide. |
 | `/book-genesis stop` | Pause a run cleanly before manual intervention. |
 | `/book-genesis approve` | Approve a pending checkpoint and continue. |
@@ -56,6 +60,10 @@ Command arguments that contain spaces should be quoted. Paths can be absolute or
 | `/book-genesis pacing` | Write a pacing dashboard. |
 | `/book-genesis critique-panel` | Write multi-reviewer critique and disagreement reports. |
 | `/book-genesis source-audit` | Map nonfiction/memoir claims to source coverage. |
+| `/book-genesis source add` | Add a source to the run ledger. |
+| `/book-genesis source-pack` | Write source-first planning and source-gap artifacts. |
+| `/book-genesis bible-check` | Check manuscript drift against the story bible. |
+| `/book-genesis revision-history` | Summarize phase, feedback, quality, and draft-change history. |
 | `/book-genesis variants` | Generate optional planning variants before outline lock-in. |
 | `/book-genesis choose-variant` | Persist the selected planning variant. |
 | `/book-genesis launch-kit` | Generate newsletter, press, book club, social, and retailer copy. |
@@ -71,6 +79,8 @@ Command arguments that contain spaces should be quoted. Paths can be absolute or
 | `/book-genesis export` | Generate final manuscript export files. |
 | `/book-genesis kdp` | Prepare a manual Amazon KDP submission package. |
 | `/book-genesis audit` | Report artifact, manuscript, publishing, KDP, and promotion readiness. |
+| `/book-genesis final-check` | Run the final export/KDP readiness gate. |
+| `/book-genesis beta-packet` | Write a beta-reader packet and feedback form. |
 | `/book-genesis migrate` | Normalize older run-state files to the current state shape. |
 | `/book-auto` | Compatibility alias for `/book-genesis run`. |
 
@@ -163,8 +173,10 @@ Usage:
 
 - `/book-genesis init-config [mode]`
 - `/book-genesis init-config fiction --force`
+- `/book-genesis init-config fiction --preset thriller`
 
 Supported modes are `fiction`, `memoir`, `prescriptive-nonfiction`, `narrative-nonfiction`, and `childrens`.
+Supported genre presets are `thriller`, `memoir`, `business`, `devotional`, `childrens-picture-book`, `middle-grade`, and `romantasy`.
 
 Outputs:
 
@@ -445,6 +457,17 @@ Use `/book-genesis open [run-dir]` to print key paths for the run root, state, l
 
 Use `/book-genesis stats [run-dir] [--json]` for parseable manuscript and readiness counts: phase, completed phases, word count, chapter count, average chapter length, latest quality gate, style findings, source audit warnings, KDP issues, and launch-kit readiness.
 
+### Operator Guidance Commands
+
+Use these commands when returning to a run or deciding what to do next:
+
+- `/book-genesis next [run-dir] [--json]`
+- `/book-genesis dashboard [run-dir] [--json]`
+- `/book-genesis map [run-dir]`
+- `/book-genesis doctor-run [run-dir] [--json]`
+
+`next` prints the single recommended operator command. `dashboard` writes `dashboard/run-dashboard.md` and `.json`. `map` writes `dashboard/project-map.md` with a Mermaid phase graph. `doctor-run` diagnoses one run's state, artifacts, source-pack status, and final-check blockers.
+
 ### `/book-genesis audit`
 
 Run a combined health check for a run: validates artifact targets for completed/current phases and summarizes manuscript intelligence, export readiness, KDP readiness, and promotion readiness.
@@ -473,6 +496,19 @@ Audit is the broadest status command. It combines:
 - next actions inferred from the report
 
 Use `audit` before export, before KDP packaging, and after a large manual edit.
+
+### Final Readiness, Sources, And Beta Readers
+
+Use these commands before final packaging or outside-reader review:
+
+- `/book-genesis source add [run-dir] <title> --summary <text> [--url <url>]`
+- `/book-genesis source-pack [run-dir] [--json]`
+- `/book-genesis bible-check [run-dir] [--json]`
+- `/book-genesis revision-history [run-dir] [--json]`
+- `/book-genesis final-check [run-dir] [--json]`
+- `/book-genesis beta-packet [run-dir] [--sample full|first-3|first-5]`
+
+`source-pack` writes `research/source-pack.md`, `research/source-pack.json`, and `research/source-gap-plan.md`. `bible-check` writes deterministic story-bible drift reports under `evaluations/`. `final-check` combines audit, style, pacing, source, bible, publishing, cover, launch, and archive readiness; `export` and `kdp` warn when final-check has blockers but do not block packaging. `beta-packet` writes a sample manuscript, instructions, feedback form, and target-reader questions under `evaluations/beta-reader-packet/`.
 
 ### `/book-genesis migrate`
 
@@ -520,11 +556,13 @@ Book Genesis also registers internal tools for the autonomous agent. Operators n
 | --- | --- |
 | `book_genesis_complete_kickoff` | Record kickoff intake, write the project brief, and advance to research. |
 | `book_genesis_update_story_bible` | Persist durable characters, settings, promises, motifs, timeline facts, and glossary entries. |
+| `book_genesis_web_search` | Search the public internet during research. |
+| `book_genesis_fetch_url` | Fetch a public URL during research for source inspection. |
 | `book_genesis_record_source` | Add research or evaluation sources to the run ledger. |
 | `book_genesis_record_decision` | Add durable creative or strategic decisions to the run ledger. |
 | `book_genesis_complete_phase` | Mark a phase complete, validate artifacts, write a handoff, and queue the next phase. |
 | `book_genesis_report_failure` | Record a failed phase and retry or stop based on the failure type. |
-| `book_genesis_compact_context` | Request context compaction with Book Genesis-specific focus. |
+| `book_genesis_compact_context` | Request context compaction with Book Genesis-specific focus, then auto-continue the active phase. |
 
 These tools enforce the runtime contract. For example, the evaluate phase cannot complete without a quality gate, required artifacts must exist before phase completion, and independent evaluation scores must be present when `independentEvaluationPass` is enabled.
 
@@ -592,6 +630,7 @@ Book Genesis reads `book-genesis.config.json` from the workspace root. `--config
   "researchDepth": "standard",
   "independentEvaluationPass": true,
   "bookMode": "fiction",
+  "genrePreset": "thriller",
   "storyBibleEnabled": true,
   "approvalPhases": ["foundation", "write"],
   "sampleChaptersForApproval": 3,
@@ -670,6 +709,7 @@ Book Genesis reads `book-genesis.config.json` from the workspace root. `--config
 Additional config notes:
 
 - `bookMode` supports `fiction`, `memoir`, `prescriptive-nonfiction`, `narrative-nonfiction`, and `childrens`
+- `genrePreset` can tune starter configs for `thriller`, `memoir`, `business`, `devotional`, `childrens-picture-book`, `middle-grade`, or `romantasy`
 - `independentEvaluationPass` requires `evaluations/independent-evaluation.md` during evaluate so quality gates get a second-pass read
 - `approvalPhases` lets you pause after specific completed phases for human review
 - `storyBibleEnabled` keeps durable project memory available to later phases
@@ -682,6 +722,7 @@ Additional config notes:
 Mode-specific starter configs:
 
 - `/book-genesis init-config fiction`
+- `/book-genesis init-config fiction --preset thriller`
 - `/book-genesis init-config memoir`
 - `/book-genesis init-config prescriptive-nonfiction`
 - `/book-genesis init-config narrative-nonfiction`
@@ -691,7 +732,7 @@ Troubleshooting:
 
 - Config errors: run `/book-genesis doctor --json`, then fix the exact field named in the `config_invalid` result.
 - Cover assets: keep final covers inside the run directory and run `/book-genesis cover-check <path>` before `/book-genesis kdp`.
-- Source audit: for nonfiction and memoir, use `book_genesis_record_source` during research or revise unsupported high-risk claims before final packaging.
+- Source audit: for nonfiction and memoir, use `/book-genesis source add`, then `/book-genesis source-pack`, or revise unsupported high-risk claims before final packaging.
 - Revision plans: if broad feedback should not immediately rewrite the book, use `/book-genesis feedback-plan` and approve only after the impact map is acceptable.
 - Existing runs: run `/book-genesis migrate [run-dir]`; migration writes a timestamped `.bak` before saving normalized state.
 
@@ -701,6 +742,8 @@ Troubleshooting:
 - Semantic validation now also checks chapter planning coverage and sequential chapter numbering for draft artifacts.
 - Structured ledgers preserve sources and decisions in `book-projects/<run-id>/.book-genesis/ledger.json` so later phases do not have to infer durable context from prose handoffs.
 - Structured story bible files preserve characters, settings, promises, timeline facts, and glossary terms across phases.
+- Research phases can use `book_genesis_web_search` and `book_genesis_fetch_url` for current internet-backed comp titles, market signals, and source context before recording material sources.
+- Session compaction preserves Book Genesis run context and queues an automatic continuation message when the active run is still running.
 - Quality gates let the evaluate phase score the manuscript against the configured threshold. Failed gates route automatically to revision, and revision routes back to evaluation until the manuscript passes or reaches `maxRevisionCycles`.
 - Quality rubrics are mode-aware, so fiction and nonfiction projects can fail for different reasons.
 - When `independentEvaluationPass` is enabled, evaluate completion also expects `evaluations/independent-evaluation.md` to include numeric score lines (for example `marketFit: 88`) that roughly agree with the quality gate scores.
