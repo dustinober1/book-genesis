@@ -303,6 +303,18 @@ function buildIssues(run: RunState, description: string, keywords: string[], cat
     });
   }
 
+  const coverCheckPath = path.join(run.rootDir, "delivery", "kdp", "cover-check.json");
+  if (existsSync(coverCheckPath)) {
+    const coverCheck = JSON.parse(readFileSync(coverCheckPath, "utf8")) as { issues?: KdpPreflightIssue[] };
+    issues.push(...(coverCheck.issues ?? []));
+  } else if (run.config.coverCheck.enabled) {
+    issues.push({
+      severity: "warning",
+      code: "cover_check_missing",
+      message: "Run /book-genesis cover-check with the final cover asset before KDP submission.",
+    });
+  }
+
   return issues;
 }
 
@@ -611,6 +623,7 @@ export async function writeKdpPackage(run: RunState): Promise<KdpPackageManifest
     suggestedKeywordSeeds,
     categories,
     copiedAssets,
+    series: run.config.bookMatter.series,
     sourceLinks: [...KDP_SOURCE_LINKS],
   };
 

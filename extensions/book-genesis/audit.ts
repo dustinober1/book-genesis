@@ -5,6 +5,11 @@ import { validatePhaseArtifacts } from "./artifacts.js";
 import { analyzeManuscript, formatManuscriptIntelligenceReport } from "./intelligence.js";
 import { buildPublishingReadiness, formatPublishingReadiness } from "./publishing.js";
 import type { HealthCheckResult, PhaseName, RunState } from "./types.js";
+import { buildPacingDashboard } from "./scenes.js";
+import { lintStyle } from "./style.js";
+import { buildSourceAudit } from "./source-audit.js";
+import { buildCritiquePanel } from "./critique.js";
+import { launchKitReady } from "./launch.js";
 
 function promotionReadiness(run: RunState) {
   const results: HealthCheckResult[] = [];
@@ -49,13 +54,35 @@ export function buildAuditReport(run: RunState) {
     validation: validatePhaseArtifacts(run, phase, run.artifacts[phase] ?? []),
   }));
   const manuscript = analyzeManuscript(run);
+  const style = lintStyle(run);
+  const pacing = buildPacingDashboard(run);
+  const critique = buildCritiquePanel(run);
+  const sourceAudit = buildSourceAudit(run);
   const publishing = buildPublishingReadiness(run);
   const promotion = promotionReadiness(run);
+  const coverCheckPath = path.join(run.rootDir, "delivery", "kdp", "cover-check.json");
+  const coverCheck = existsSync(coverCheckPath)
+    ? { ok: true, results: [{ ok: true, severity: "info", code: "cover_check_present", message: "Cover-check report is present." } satisfies HealthCheckResult] }
+    : { ok: false, results: [{ ok: false, severity: "warning", code: "cover_check_missing", message: "Cover-check report is missing.", remedy: "Run /book-genesis cover-check before KDP submission." } satisfies HealthCheckResult] };
+  const launch = launchKitReady(run);
+  const launchKit: { ok: boolean; results: HealthCheckResult[] } = launch
+    ? { ok: true, results: [{ ok: true, severity: launch.warnings?.length ? "warning" : "info", code: "launch_kit_present", message: launch.warnings?.length ? `Launch kit has ${launch.warnings.length} warning(s).` : "Launch kit is present." }] }
+    : { ok: false, results: [{ ok: false, severity: "warning", code: "launch_kit_missing", message: "Launch kit is missing.", remedy: "Run /book-genesis launch-kit." }] };
+  const archivePath = path.join(run.rootDir, "delivery", "archive", "archive-manifest.json");
+  const archive = existsSync(archivePath)
+    ? { ok: true, results: [{ ok: true, severity: "info", code: "archive_present", message: "Archive manifest is present." } satisfies HealthCheckResult] }
+    : { ok: false, results: [{ ok: false, severity: "warning", code: "archive_missing", message: "Archive manifest is missing.", remedy: "Run /book-genesis archive." } satisfies HealthCheckResult] };
   const nextActions = [
     ...artifacts.flatMap((entry) => entry.validation.issues.slice(0, 3).map((issue) => `Fix ${issue.target}: ${issue.message}`)),
     ...manuscript.findings.slice(0, 3).map((finding) => `${finding.target}: ${finding.suggestedAction}`),
+    ...style.findings.filter((item) => item.severity !== "info").slice(0, 3).map((finding) => `${finding.target}: ${finding.suggestedAction}`),
+    ...pacing.findings.filter((item) => item.severity !== "info").slice(0, 3).map((finding) => `${finding.target}: ${finding.suggestedAction}`),
+    ...sourceAudit.findings.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
     ...publishing.results.filter((item) => item.severity !== "info").slice(0, 3).map((item) => item.remedy ?? item.message),
     ...promotion.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
+    ...coverCheck.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
+    ...launchKit.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
+    ...archive.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
   ];
 
   return {
@@ -65,9 +92,16 @@ export function buildAuditReport(run: RunState) {
     currentPhase: run.currentPhase,
     artifacts,
     manuscript,
+    style,
+    pacing,
+    critique,
+    sourceAudit,
     publishing,
     promotion,
-    nextActions,
+    coverCheck,
+    launchKit,
+    archive,
+    nextActions: Array.from(new Set(nextActions)),
   };
 }
 
@@ -76,6 +110,16 @@ export function formatAuditReport(report: ReturnType<typeof buildAuditReport>) {
     ? report.artifacts.map((entry) => `- ${entry.phase}: ${entry.validation.ok ? "OK" : `FAIL (${entry.validation.issues.length})`}`).join("\n")
     : "- none";
   const promotionLines = report.promotion.results.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.message}`).join("\n");
+  const styleLines = report.style.findings.length ? report.style.findings.slice(0, 8).map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.evidence}`).join("\n") : "- none";
+  const pacingLines = report.pacing.findings.length ? report.pacing.findings.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.evidence}`).join("\n") : "- none";
+  const sourceLines = report.sourceAudit.findings.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.message}`).join("\n");
+  const critiqueLines = [
+    `- Reviewers: ${report.critique.reviewers.length}`,
+    `- Mean disagreement: ${report.critique.disagreement.meanAbsDelta ?? "n/a"}`,
+  ].join("\n");
+  const coverLines = report.coverCheck.results.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.message}`).join("\n");
+  const launchLines = report.launchKit.results.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.message}`).join("\n");
+  const archiveLines = report.archive.results.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.message}`).join("\n");
   const nextActions = report.nextActions.length > 0 ? report.nextActions.map((item) => `- ${item}`).join("\n") : "- none";
 
   return [
@@ -90,11 +134,32 @@ export function formatAuditReport(report: ReturnType<typeof buildAuditReport>) {
     "## Manuscript intelligence",
     formatManuscriptIntelligenceReport(report.manuscript).replace(/^# Manuscript Intelligence Report\n\n/, ""),
     "",
+    "## Style lint",
+    styleLines,
+    "",
+    "## Scene map and pacing",
+    pacingLines,
+    "",
+    "## Critique panel",
+    critiqueLines,
+    "",
+    "## Source audit",
+    sourceLines,
+    "",
     "## Publishing readiness",
     formatPublishingReadiness(report.publishing).replace(/^# Publishing Readiness\n\n/, ""),
     "",
     "## Promotion readiness",
     promotionLines,
+    "",
+    "## Cover-check readiness",
+    coverLines,
+    "",
+    "## Launch-kit readiness",
+    launchLines,
+    "",
+    "## Archive readiness",
+    archiveLines,
     "",
     "## Next actions",
     nextActions,

@@ -14,7 +14,7 @@ import {
   type RunConfig,
   type RunState,
 } from "./types.js";
-import { DEFAULT_RUN_CONFIG } from "./config.js";
+import { DEFAULT_RUN_CONFIG, normalizeRunConfig as normalizeRunConfigStrict } from "./config.js";
 import { createQualityGate } from "./quality.js";
 
 const RUNS_DIRNAME = "book-projects";
@@ -133,13 +133,13 @@ function normalizeRunConfig(raw: unknown): RunConfig {
 
   const approvalPhases = asStringArray(source.approvalPhases).filter((phase) => asPhaseName(phase));
 
-  return {
+  return normalizeRunConfigStrict({
     ...DEFAULT_RUN_CONFIG,
     ...source,
     approvalPhases: approvalPhases.length > 0 ? approvalPhases.map((phase) => phase as PhaseName) : DEFAULT_RUN_CONFIG.approvalPhases,
     kdp,
     promotion,
-  };
+  });
 }
 
 function normalizeHistory(value: unknown): PhaseHistoryEntry[] {
@@ -336,6 +336,7 @@ function normalizeRunState(runDir: string, raw: unknown): { run: RunState; needs
     storyBibleJsonPath: asString(rawRun.storyBibleJsonPath),
     lastExportManifestPath: asString(rawRun.lastExportManifestPath),
     lastKdpPackageManifestPath: asString(rawRun.lastKdpPackageManifestPath),
+    selectedVariantPath: asString(rawRun.selectedVariantPath),
     approval: isObject(rawRun.approval)
       ? {
           phase: asPhaseName(rawRun.approval.phase) || normalizedCurrentPhase,
@@ -353,6 +354,17 @@ function normalizeRunState(runDir: string, raw: unknown): { run: RunState; needs
           artifactPath: asString(rawRun.pendingReviewerRevision.artifactPath) || "",
           note: asString(rawRun.pendingReviewerRevision.note) || "",
           requestedFrom: asPhaseName(rawRun.pendingReviewerRevision.requestedFrom) || "completed",
+        }
+      : undefined,
+    pendingRevisionPlan: isObject(rawRun.pendingRevisionPlan)
+      ? {
+          requestedAt: asString(rawRun.pendingRevisionPlan.requestedAt) || nowIso(),
+          feedbackPath: asString(rawRun.pendingRevisionPlan.feedbackPath) || "",
+          planPath: asString(rawRun.pendingRevisionPlan.planPath) || "",
+          status: asString(rawRun.pendingRevisionPlan.status) === "approved" || asString(rawRun.pendingRevisionPlan.status) === "rejected"
+            ? (asString(rawRun.pendingRevisionPlan.status) as "approved" | "rejected")
+            : "pending",
+          note: asString(rawRun.pendingRevisionPlan.note),
         }
       : undefined,
     history: normalizeHistory(rawRun.history),

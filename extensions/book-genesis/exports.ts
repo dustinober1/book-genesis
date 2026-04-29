@@ -6,6 +6,7 @@ import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
 
 import type { ExportManifest, ExportFormat, RunState } from "./types.js";
 import { writePublishingReadinessReport } from "./publishing.js";
+import { buildMatterWrappedManuscript, writeBookMatter } from "./book-matter.js";
 
 const require = createRequire(import.meta.url);
 const Epub = require("epub-gen");
@@ -61,6 +62,7 @@ function writePublishMetadata(run: RunState, deliveryDir: string, manuscriptMark
       keywords: run.config.kdp.keywords,
       categories: run.config.kdp.categories,
     },
+    series: run.config.bookMatter.series,
     exportedAt: new Date().toISOString(),
   };
 
@@ -514,11 +516,16 @@ export async function writeExportPackage(
   mkdirSync(deliveryDir, { recursive: true });
 
   const manuscript = readFileSync(path.join(run.rootDir, "manuscript", "full-manuscript.md"), "utf8");
+  const matter = writeBookMatter(run);
+  const wrappedManuscript = buildMatterWrappedManuscript(run, manuscript);
   const files: string[] = [];
 
   const markdownPath = path.join(deliveryDir, "submission-manuscript.md");
-  writeFileSync(markdownPath, manuscript, "utf8");
-  files.push(markdownPath);
+  writeFileSync(markdownPath, wrappedManuscript, "utf8");
+  files.push(markdownPath, ...matter.frontFiles, ...matter.backFiles);
+  if (matter.seriesPath) {
+    files.push(matter.seriesPath);
+  }
 
   const publishMetadata = writePublishMetadata(run, deliveryDir, manuscript);
   files.push(publishMetadata.jsonPath, publishMetadata.mdPath);
@@ -530,12 +537,12 @@ export async function writeExportPackage(
     }
 
     if (format === "docx") {
-      files.push(await writeDocxExport(run, path.join(deliveryDir, "submission-manuscript.docx"), manuscript));
+    files.push(await writeDocxExport(run, path.join(deliveryDir, "submission-manuscript.docx"), wrappedManuscript));
       continue;
     }
 
     if (format === "epub") {
-      files.push(await writeEpubExport(run, path.join(deliveryDir, "submission-manuscript.epub"), manuscript));
+      files.push(await writeEpubExport(run, path.join(deliveryDir, "submission-manuscript.epub"), wrappedManuscript));
     }
   }
 

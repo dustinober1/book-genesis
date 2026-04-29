@@ -40,10 +40,28 @@ Command arguments that contain spaces should be quoted. Paths can be absolute or
 | `/book-genesis resume` | Continue the current run or launch the next phase. |
 | `/book-genesis status` | Show run state, phase, approval, feedback, and next action. |
 | `/book-genesis doctor` | Check package, workspace, config, dependencies, and nearby extension health. |
+| `/book-genesis init-config` | Write a mode-specific starter config and Markdown guide. |
 | `/book-genesis stop` | Pause a run cleanly before manual intervention. |
 | `/book-genesis approve` | Approve a pending checkpoint and continue. |
 | `/book-genesis reject` | Reject a pending checkpoint and stop. |
 | `/book-genesis feedback` | Reopen a run for manuscript-level reviewer feedback. |
+| `/book-genesis feedback-plan` | Turn reviewer feedback into an approval-ready revision plan. |
+| `/book-genesis approve-revision-plan` | Approve the pending revision plan and launch revise. |
+| `/book-genesis reject-revision-plan` | Reject the pending revision plan and stop the run. |
+| `/book-genesis open` | Print key run paths for the active or explicit run. |
+| `/book-genesis stats` | Show run, manuscript, quality, style, source, KDP, and launch stats. |
+| `/book-genesis style-profile` | Build author voice/style profile artifacts. |
+| `/book-genesis style-lint` | Write deterministic style lint reports. |
+| `/book-genesis scene-map` | Write a chapter/scene map. |
+| `/book-genesis pacing` | Write a pacing dashboard. |
+| `/book-genesis critique-panel` | Write multi-reviewer critique and disagreement reports. |
+| `/book-genesis source-audit` | Map nonfiction/memoir claims to source coverage. |
+| `/book-genesis variants` | Generate optional planning variants before outline lock-in. |
+| `/book-genesis choose-variant` | Persist the selected planning variant. |
+| `/book-genesis launch-kit` | Generate newsletter, press, book club, social, and retailer copy. |
+| `/book-genesis book-matter` | Generate front matter, back matter, and series metadata. |
+| `/book-genesis cover-check` | Validate ebook or paperback cover assets. |
+| `/book-genesis archive` | Write a handoff-ready archive manifest. |
 | `/book-genesis revise-chapter` | Reopen a run for targeted chapter feedback. |
 | `/book-genesis inspect-continuity` | Write a manuscript intelligence report without advancing phases. |
 | `/book-genesis checkpoint write` | Pause writing for review of a sample chapter set. |
@@ -135,6 +153,26 @@ Typical output includes:
 - latest run-state readability
 - warnings for broken sibling extensions that may prevent Pi from booting before Book Genesis loads
 
+`/book-genesis doctor --fix fiction` performs only safe fixes: it creates expected workspace directories and writes a starter config if no config exists. It does not delete files or overwrite an existing config.
+
+### `/book-genesis init-config`
+
+Write a mode-specific starter config and a Markdown guide.
+
+Usage:
+
+- `/book-genesis init-config [mode]`
+- `/book-genesis init-config fiction --force`
+
+Supported modes are `fiction`, `memoir`, `prescriptive-nonfiction`, `narrative-nonfiction`, and `childrens`.
+
+Outputs:
+
+- `book-genesis.config.json`
+- `book-genesis.config.guide.md`
+
+Use `--force` only when you intentionally want to replace an existing config.
+
 ### `/book-genesis stop`
 
 Pause a running run cleanly.
@@ -213,6 +251,16 @@ Notes:
 - The runtime reopens the run in `revise`, injects the feedback into the next prompt, then routes the book back through `evaluate`.
 - Use this after a complete book review when you want the package to rework the reviewer notes.
 - If the run is currently active, stop it first with `/book-genesis stop`.
+
+### Revision Plan Commands
+
+Use the revision-plan-first workflow for broad reviewer notes:
+
+- `/book-genesis feedback-plan [run-dir] <reviewer feedback>`
+- `/book-genesis approve-revision-plan [run-dir]`
+- `/book-genesis reject-revision-plan [run-dir] [note]`
+
+`feedback-plan` writes `evaluations/revision-plan.md`, `evaluations/change-impact-map.md`, and `evaluations/revision-risk-register.md` without launching rewrite work. Approval routes the run to `revise`; rejection stops the run and records the note.
 
 ### `/book-genesis revise-chapter`
 
@@ -330,6 +378,7 @@ Notes:
 - Markdown export is always created as `delivery/submission-manuscript.md`.
 - DOCX and EPUB are generated when present in `exportFormats`.
 - Export requires a full manuscript and a delivery synopsis artifact.
+- Export includes configured front matter and back matter in the generated manuscript and writes `delivery/series-metadata.json` when series metadata is configured.
 
 ### `/book-genesis kdp`
 
@@ -350,7 +399,51 @@ Notes:
 - It generates `delivery/kdp/` files, copies KDP-ready assets, writes a preflight report against the current manual KDP workflow, and includes detailed cover-image prompts plus cover spec notes for eBook and paperback submission.
 - eBook packaging requires EPUB output; paperback packaging requires DOCX output. The command requests those export formats automatically for the KDP package.
 - Missing author name, invalid paperback trim size, and missing core metadata are reported in the preflight output.
+- Existing `cover-check` findings are included in the KDP preflight output.
 - Always review the package manually in KDP before publishing.
+
+### Quality Intelligence Commands
+
+These commands write reports under `evaluations/` or `foundation/` without advancing the run:
+
+- `/book-genesis style-profile [run-dir]`
+- `/book-genesis style-lint [run-dir] [--json]`
+- `/book-genesis scene-map [run-dir] [--json]`
+- `/book-genesis pacing [run-dir] [--json]`
+- `/book-genesis critique-panel [run-dir] [--json]`
+- `/book-genesis source-audit [run-dir] [--json]`
+
+Use them after drafting and before a serious evaluate/revise cycle. `source-audit` is required by default for memoir, prescriptive nonfiction, and narrative nonfiction, and optional for fiction.
+
+### Planning Variants
+
+Generate and select optional foundation variants before outline lock-in:
+
+- `/book-genesis variants [run-dir] --count 3`
+- `/book-genesis choose-variant [run-dir] 2`
+
+The selected variant is written to `foundation/selected-variant.md` and used by the foundation prompt when present.
+
+### Launch, Cover, Matter, And Archive
+
+Publishing and launch-prep commands:
+
+- `/book-genesis launch-kit [run-dir] [--json]`
+- `/book-genesis book-matter [run-dir]`
+- `/book-genesis cover-check [run-dir] <cover-path> [--target ebook|paperback] [--json]`
+- `/book-genesis archive [run-dir] [--manifest-only]`
+
+`launch-kit` writes the newsletter sequence, ARC invite, book club questions, press kit, author Q&A, retailer description variants, social calendar, homepage copy, and manifest under `promotion/launch-kit/`.
+
+`cover-check` validates local cover assets inside the run directory. JPEG and PNG ebook covers get dimension and file-size checks; paperback cover PDFs get extension and spine/page-count guidance.
+
+`archive` writes `delivery/archive/archive-manifest.json` with checksums and a README. It is non-destructive and does not zip by default.
+
+### `/book-genesis open` And `/book-genesis stats`
+
+Use `/book-genesis open [run-dir]` to print key paths for the run root, state, ledger, story bible, manuscript, latest evaluation, audit, export manifest, KDP manifest, and launch kit manifest.
+
+Use `/book-genesis stats [run-dir] [--json]` for parseable manuscript and readiness counts: phase, completed phases, word count, chapter count, average chapter length, latest quality gate, style findings, source audit warnings, KDP issues, and launch-kit readiness.
 
 ### `/book-genesis audit`
 
@@ -373,7 +466,10 @@ Audit is the broadest status command. It combines:
 - manuscript intelligence findings
 - publishing readiness
 - KDP metadata readiness
+- cover-check readiness
 - promotion readiness for the companion short-story package
+- launch-kit readiness
+- archive readiness
 - next actions inferred from the report
 
 Use `audit` before export, before KDP packaging, and after a large manual edit.
@@ -444,6 +540,25 @@ Common usage looks like this:
 6. Export the final package with `/book-genesis export`
 7. If you plan to publish on Amazon, prepare the KDP package with `/book-genesis kdp`
 
+Production-minded release flow:
+
+1. `/book-genesis init-config fiction`
+2. `/book-genesis run en a near-future thriller about memory theft`
+3. `/book-genesis variants --count 3`
+4. `/book-genesis choose-variant 2`
+5. `/book-genesis style-profile`
+6. `/book-genesis style-lint`
+7. `/book-genesis scene-map`
+8. `/book-genesis pacing`
+9. `/book-genesis critique-panel`
+10. `/book-genesis feedback-plan "Reviewer notes..."`
+11. `/book-genesis approve-revision-plan`
+12. `/book-genesis export`
+13. `/book-genesis cover-check delivery/kdp/front-cover.png`
+14. `/book-genesis kdp`
+15. `/book-genesis launch-kit`
+16. `/book-genesis archive`
+
 ## Package Layout
 
 - `extensions/book-genesis/` — PI runtime
@@ -499,6 +614,55 @@ Book Genesis reads `book-genesis.config.json` from the workspace root. `--config
     "shortStoryEnabled": true,
     "shortStoryMaxPages": 15,
     "shortStoryPurpose": "lead-magnet"
+  },
+  "style": {
+    "enabled": true,
+    "bannedPhrases": [],
+    "voiceStrictness": "standard",
+    "lintOnEvaluate": true
+  },
+  "sceneMap": {
+    "enabled": true,
+    "includeEmotionalValence": true,
+    "includePromiseTracking": true
+  },
+  "critiquePanel": {
+    "enabled": true,
+    "reviewers": ["developmental-editor", "line-editor", "target-reader", "market-editor", "continuity-editor"],
+    "requireConsensus": true,
+    "maxMeanDisagreement": 8
+  },
+  "sourceAudit": {
+    "enabled": true,
+    "requiredForModes": ["memoir", "prescriptive-nonfiction", "narrative-nonfiction"],
+    "flagUnsupportedStatistics": true
+  },
+  "launchKit": {
+    "enabled": true,
+    "includeNewsletterSequence": true,
+    "includePressKit": true,
+    "includeBookClubGuide": true
+  },
+  "bookMatter": {
+    "frontMatter": ["title-page", "copyright"],
+    "backMatter": ["author-note", "newsletter-cta"],
+    "series": null
+  },
+  "coverCheck": {
+    "enabled": true,
+    "minEbookWidth": 625,
+    "minEbookHeight": 1000,
+    "idealEbookWidth": 1600,
+    "idealEbookHeight": 2560
+  },
+  "revisionPlan": {
+    "requirePlanBeforeRewrite": true,
+    "approvalRequired": true
+  },
+  "archive": {
+    "includeState": true,
+    "includeLedger": true,
+    "includeReports": true
   }
 }
 ```
@@ -512,6 +676,24 @@ Additional config notes:
 - `exportFormats` controls which final package files `/book-genesis export` generates
 - `kdp` controls the manual Amazon KDP package created by `/book-genesis kdp`
 - `promotion` controls companion short-story assets for website lead magnets, world teasers, or content series
+- `style`, `sceneMap`, `critiquePanel`, and `sourceAudit` control quality-intelligence reports
+- `launchKit`, `bookMatter`, `coverCheck`, `revisionPlan`, and `archive` control publishing, revision, and handoff surfaces
+
+Mode-specific starter configs:
+
+- `/book-genesis init-config fiction`
+- `/book-genesis init-config memoir`
+- `/book-genesis init-config prescriptive-nonfiction`
+- `/book-genesis init-config narrative-nonfiction`
+- `/book-genesis init-config childrens`
+
+Troubleshooting:
+
+- Config errors: run `/book-genesis doctor --json`, then fix the exact field named in the `config_invalid` result.
+- Cover assets: keep final covers inside the run directory and run `/book-genesis cover-check <path>` before `/book-genesis kdp`.
+- Source audit: for nonfiction and memoir, use `book_genesis_record_source` during research or revise unsupported high-risk claims before final packaging.
+- Revision plans: if broad feedback should not immediately rewrite the book, use `/book-genesis feedback-plan` and approve only after the impact map is acceptable.
+- Existing runs: run `/book-genesis migrate [run-dir]`; migration writes a timestamped `.bak` before saving normalized state.
 
 ## Autonomy Features
 

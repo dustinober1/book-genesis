@@ -1,6 +1,6 @@
 {
   "name": "book-genesis",
-  "version": "6.0.0-pi.0",
+  "version": "6.1.0-pi.0",
   "description": "PI-native autonomous book generation package built on @mariozechner/pi-coding-agent.",
   "author": "Derived from Book Genesis by Philip Stark",
   "contributors": [

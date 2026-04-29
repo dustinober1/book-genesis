@@ -28,7 +28,12 @@ import { PHASE_ORDER, type PhaseName, type RunState } from "./types.js";
 import { loadRunConfig } from "./config.js";
 import { formatArtifactValidationReport, validatePhaseArtifacts } from "./artifacts.js";
 import { buildAuditReport, formatAuditReport } from "./audit.js";
+import { writeArchive } from "./archive.js";
 import { upsertStoryBible } from "./bible.js";
+import { writeBookMatter } from "./book-matter.js";
+import { STARTER_CONFIG_MODES, writeStarterConfig } from "./config-init.js";
+import { writeCoverCheck } from "./cover-check.js";
+import { writeCritiquePanel } from "./critique.js";
 import { buildDoctorReport, formatDoctorReport } from "./doctor.js";
 import { writeExportPackage } from "./exports.js";
 import { ensureWorkspaceGitRepo, snapshotRunProgress } from "./git.js";
@@ -36,8 +41,15 @@ import { validateKickoffIntake, writeKickoffBrief } from "./intake.js";
 import { compareDrafts, requestChapterRevision, requestWriteSampleCheckpoint } from "./interventions.js";
 import { writeManuscriptIntelligenceReport } from "./intelligence.js";
 import { writeKdpPackage } from "./kdp.js";
+import { writeLaunchKit } from "./launch.js";
 import { recordDecision, recordSource } from "./ledger.js";
 import { buildShortStoryBrainstorm, writeShortStoryPackage } from "./promotion.js";
+import { approveRevisionPlan, createRevisionPlan, rejectRevisionPlan } from "./revision-plan.js";
+import { writePacingDashboard, writeSceneMap } from "./scenes.js";
+import { buildRunStats, formatRunStats } from "./stats.js";
+import { writeStyleLint, writeStyleProfile } from "./style.js";
+import { writeSourceAudit } from "./source-audit.js";
+import { chooseVariant, generateVariants } from "./variants.js";
 import { readIndependentEvaluationScores, scoreDisagreement } from "./evaluation.js";
 
 const activeRunBySession = new Map<string, string>();
@@ -224,6 +236,19 @@ function parseJsonFlag(args: string) {
   };
 }
 
+function parseFlagValue(args: string, flag: string) {
+  const match = args.match(new RegExp(`(?:^|\\s)${flag}\\s+(\\S+)(?=\\s|$)`));
+  return match?.[1];
+}
+
+function removeFlag(args: string, flag: string) {
+  return args.replace(new RegExp(`(^|\\s)${flag}(?=\\s|$)`, "g"), " ").trim();
+}
+
+function removeFlagValue(args: string, flag: string) {
+  return args.replace(new RegExp(`(^|\\s)${flag}\\s+\\S+(?=\\s|$)`, "g"), " ").trim();
+}
+
 function parseSampleCount(args: string) {
   const match = args.match(/(?:^|\s)--sample\s+(\d+)(?=\s|$)/);
   if (!match) {
@@ -360,13 +385,17 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("book-genesis", {
-    description: "Manage autonomous Book Genesis runs: /book-genesis run|resume|status|stop|approve|reject|feedback|list-runs|export|kdp|migrate|audit|doctor|revise-chapter|inspect-continuity|checkpoint|compare-drafts|short-story",
+    description: "Manage autonomous Book Genesis runs.",
     getArgumentCompletions: (prefix: string) => {
       const parts = prefix.trim().split(/\s+/);
       if (parts.length <= 1) {
-        return ["run", "resume", "status", "stop", "approve", "reject", "feedback", "list-runs", "export", "kdp", "audit", "doctor", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
+        return ["run", "resume", "status", "stop", "approve", "reject", "feedback", "feedback-plan", "approve-revision-plan", "reject-revision-plan", "list-runs", "export", "kdp", "audit", "doctor", "open", "stats", "init-config", "style-profile", "style-lint", "scene-map", "pacing", "critique-panel", "source-audit", "variants", "choose-variant", "launch-kit", "book-matter", "cover-check", "archive", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
           .filter((item) => item.startsWith(parts[0] ?? ""))
           .map((item) => ({ value: item, label: item }));
+      }
+
+      if (parts[0] === "init-config") {
+        return STARTER_CONFIG_MODES.filter((item) => item.startsWith(parts[1] ?? "")).map((item) => ({ value: item, label: item }));
       }
 
       return [];
@@ -375,6 +404,18 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
       const { subcommand, rest } = parseSubcommand(args);
 
       switch (subcommand) {
+        case "init-config": {
+          const force = rest.split(/\s+/).includes("--force");
+          const mode = rest.replace(/(^|\s)--force(?=\s|$)/g, " ").trim() || "fiction";
+          try {
+            const result = writeStarterConfig(process.cwd(), mode as any, force);
+            sendStatus(pi, `Starter config written.\n${result.configPath}\n${result.guidePath}`);
+          } catch (error) {
+            ctx.ui.notify((error as Error).message, "error");
+          }
+          return;
+        }
+
         case "run": {
           let configPath: string | undefined;
           let ideaInput = rest;
@@ -540,6 +581,9 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           }
 
           const run = readRunState(runDir);
+          if (run.config.revisionPlan.requirePlanBeforeRewrite) {
+            ctx.ui.notify("Revision plans are required for this run. Use /book-genesis feedback-plan [run-dir] <reviewer feedback>.", "info");
+          }
           try {
             requestReviewerRevision(run, note);
           } catch (error) {
@@ -549,6 +593,57 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
 
           writeRunState(run);
           await launchPhaseSession(pi, ctx, run, "Reviewer feedback received. Rework the manuscript against the latest notes.");
+          return;
+        }
+
+        case "feedback-plan": {
+          const { runDir, note } = parseRunDirAndNote(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const run = readRunState(runDir);
+          try {
+            const plan = createRevisionPlan(run, note);
+            writeRunState(run);
+            sendStatus(pi, `Revision plan created.\n${plan.planPath}`);
+          } catch (error) {
+            ctx.ui.notify((error as Error).message, "error");
+          }
+          return;
+        }
+
+        case "approve-revision-plan": {
+          const runDir = resolveRunDir(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const run = readRunState(runDir);
+          try {
+            approveRevisionPlan(run);
+            writeRunState(run);
+            await launchPhaseSession(pi, ctx, run, "Approved revision plan.");
+          } catch (error) {
+            ctx.ui.notify((error as Error).message, "error");
+          }
+          return;
+        }
+
+        case "reject-revision-plan": {
+          const { runDir, note } = parseRunDirAndNote(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const run = readRunState(runDir);
+          try {
+            rejectRevisionPlan(run, note);
+            writeRunState(run);
+            sendStatus(pi, formatRunStatus(run));
+          } catch (error) {
+            ctx.ui.notify((error as Error).message, "error");
+          }
           return;
         }
 
@@ -574,6 +669,17 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           const manifest = await writeExportPackage(run);
           writeRunState(run);
           sendStatus(pi, `Exported ${manifest.files.length} files for ${run.id}.\n${manifest.files.join("\n")}`);
+          return;
+        }
+
+        case "book-matter": {
+          const runDir = resolveRunDir(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const result = writeBookMatter(readRunState(runDir));
+          sendStatus(pi, `Book matter written.\n${[...result.frontFiles, ...result.backFiles, result.seriesPath].filter(Boolean).join("\n")}`);
           return;
         }
 
@@ -612,11 +718,126 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
 
         case "doctor": {
           const parsedDoctor = parseJsonFlag(rest);
+          const fix = parsedDoctor.rest.split(/\s+/).includes("--fix");
+          const mode = STARTER_CONFIG_MODES.find((entry) => parsedDoctor.rest.split(/\s+/).includes(entry));
           const report = buildDoctorReport({
             workspaceRoot: process.cwd(),
             packageRoot: PACKAGE_ROOT,
+            fix,
+            mode,
           });
           sendStatus(pi, parsedDoctor.json ? JSON.stringify(report, null, 2) : formatDoctorReport(report));
+          return;
+        }
+
+        case "open": {
+          const runDir = resolveRunDir(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const run = readRunState(runDir);
+          const paths = [
+            ["run root", run.rootDir],
+            ["run state", run.statePath],
+            ["ledger", run.ledgerPath],
+            ["story bible", run.storyBiblePath ?? path.join(run.rootDir, "foundation", "story-bible.md")],
+            ["full manuscript", path.join(run.rootDir, "manuscript", "full-manuscript.md")],
+            ["latest evaluation", path.join(run.rootDir, "evaluations", "genesis-score.md")],
+            ["latest audit", path.join(run.rootDir, "evaluations", "audit.md")],
+            ["export manifest", run.lastExportManifestPath ?? path.join(run.rootDir, "delivery", "export-manifest.json")],
+            ["KDP manifest", run.lastKdpPackageManifestPath ?? path.join(run.rootDir, "delivery", "kdp", "kdp-package-manifest.json")],
+            ["launch kit manifest", path.join(run.rootDir, "promotion", "launch-kit", "launch-kit-manifest.json")],
+          ];
+          sendStatus(pi, paths.map(([label, value]) => `- ${label}: ${value}`).join("\n"));
+          return;
+        }
+
+        case "stats": {
+          const parsedStats = parseJsonFlag(rest);
+          const runDir = resolveRunDir(parsedStats.rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const stats = buildRunStats(readRunState(runDir));
+          sendStatus(pi, parsedStats.json ? JSON.stringify(stats, null, 2) : formatRunStats(stats));
+          return;
+        }
+
+        case "style-profile":
+        case "style-lint":
+        case "scene-map":
+        case "pacing":
+        case "critique-panel":
+        case "source-audit":
+        case "launch-kit":
+        case "archive": {
+          const parsed = parseJsonFlag(rest);
+          const manifestOnly = parsed.rest.split(/\s+/).includes("--manifest-only");
+          const cleanRest = removeFlag(parsed.rest, "--manifest-only");
+          const runDir = resolveRunDir(cleanRest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const run = readRunState(runDir);
+          const result =
+            subcommand === "style-profile" ? writeStyleProfile(run)
+            : subcommand === "style-lint" ? writeStyleLint(run)
+            : subcommand === "scene-map" ? writeSceneMap(run)
+            : subcommand === "pacing" ? writePacingDashboard(run)
+            : subcommand === "critique-panel" ? writeCritiquePanel(run)
+            : subcommand === "source-audit" ? writeSourceAudit(run)
+            : subcommand === "launch-kit" ? writeLaunchKit(run)
+            : writeArchive(run, manifestOnly);
+          sendStatus(pi, parsed.json ? JSON.stringify(result, null, 2) : `${subcommand} complete.`);
+          return;
+        }
+
+        case "variants": {
+          const countValue = parseFlagValue(rest, "--count");
+          const runArg = removeFlagValue(rest, "--count");
+          const runDir = resolveRunDir(runArg, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const result = generateVariants(readRunState(runDir), countValue ? Number(countValue) : 3);
+          sendStatus(pi, `Variants written.\n${[...result.files, result.comparisonPath].join("\n")}`);
+          return;
+        }
+
+        case "choose-variant": {
+          const parsed = parseOptionalRunDirAndRest(rest, ctx);
+          if (!parsed.runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const { first } = consumeFirstArg(parsed.rest);
+          const run = readRunState(parsed.runDir);
+          const result = chooseVariant(run, Number(first));
+          writeRunState(run);
+          sendStatus(pi, `Selected variant ${first}.\n${result.selectedPath}`);
+          return;
+        }
+
+        case "cover-check": {
+          const parsedJson = parseJsonFlag(rest);
+          const targetValue = parseFlagValue(parsedJson.rest, "--target");
+          const withoutTarget = removeFlagValue(parsedJson.rest, "--target");
+          const parsed = parseOptionalRunDirAndRest(withoutTarget, ctx);
+          if (!parsed.runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const { first: coverPath } = consumeFirstArg(parsed.rest);
+          if (!coverPath) {
+            ctx.ui.notify("Usage: /book-genesis cover-check [run-dir] <cover-path> [--target ebook|paperback]", "error");
+            return;
+          }
+          const result = writeCoverCheck(readRunState(parsed.runDir), coverPath, targetValue === "paperback" ? "paperback" : "ebook");
+          sendStatus(pi, parsedJson.json ? JSON.stringify(result.report, null, 2) : `Cover check written.\n${result.mdPath}`);
           return;
         }
 
@@ -736,7 +957,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
         }
 
         default:
-          ctx.ui.notify("Usage: /book-genesis run|resume|status|stop|approve|reject|feedback|list-runs|export|kdp|migrate|audit ...", "info");
+          ctx.ui.notify("Usage: /book-genesis run|resume|status|stop|approve|reject|feedback|list-runs|export|kdp|migrate|audit|doctor|stats|open ...", "info");
       }
     },
   });
