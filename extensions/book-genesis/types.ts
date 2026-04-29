@@ -126,6 +126,7 @@ export interface RunConfig {
   audience?: string;
   tone?: string;
   bookMode: BookMode;
+  genrePreset?: string;
   storyBibleEnabled: boolean;
   approvalPhases: PhaseName[];
   sampleChaptersForApproval: number;
