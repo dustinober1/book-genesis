@@ -1,15 +1,18 @@
-import { accessSync, constants, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { accessSync, constants, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { loadRunConfig } from "./config.js";
 import { findLatestRunDir, readRunState } from "./state.js";
 import type { DoctorReport, HealthCheckResult } from "./types.js";
+import { writeStarterConfig } from "./config-init.js";
 
 interface DoctorOptions {
   workspaceRoot: string;
   packageRoot: string;
   extensionsRoot?: string;
   includeSiblingExtensions?: boolean;
+  fix?: boolean;
+  mode?: "fiction" | "memoir" | "prescriptive-nonfiction" | "narrative-nonfiction" | "childrens";
 }
 
 function result(
@@ -152,7 +155,23 @@ function checkSiblingExtensions(packageRoot: string, extensionsRoot?: string) {
 }
 
 export function buildDoctorReport(options: DoctorOptions): DoctorReport {
+  const fixResults: HealthCheckResult[] = [];
+  if (options.fix) {
+    for (const dir of ["book-projects", "prompts", "extensions"]) {
+      mkdirSync(path.join(options.workspaceRoot, dir), { recursive: true });
+    }
+    fixResults.push(result(true, "info", "workspace_dirs_ready", "Expected workspace directories exist."));
+    const configPath = path.join(options.workspaceRoot, "book-genesis.config.json");
+    if (!existsSync(configPath) && options.mode) {
+      writeStarterConfig(options.workspaceRoot, options.mode, false);
+      fixResults.push(result(true, "info", "starter_config_created", `Created starter config for ${options.mode}.`));
+    } else if (!existsSync(configPath)) {
+      fixResults.push(result(true, "info", "starter_config_skipped", "No config exists; pass a mode to doctor --fix to create one."));
+    }
+  }
+
   const results: HealthCheckResult[] = [
+    ...fixResults,
     checkNodeVersion(),
     checkWorkspaceWritable(options.workspaceRoot),
     checkConfig(options.workspaceRoot),

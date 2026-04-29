@@ -91,9 +91,11 @@ export interface RunState {
   storyBibleJsonPath?: string;
   lastExportManifestPath?: string;
   lastKdpPackageManifestPath?: string;
+  selectedVariantPath?: string;
   approval?: ApprovalRequest;
   reviewerFeedback: ReviewerFeedbackEntry[];
   pendingReviewerRevision?: PendingReviewerRevision;
+  pendingRevisionPlan?: PendingRevisionPlan;
   history: PhaseHistoryEntry[];
   config: RunConfig;
   kickoff?: KickoffIntake;
@@ -133,6 +135,82 @@ export interface RunConfig {
   gitCommitPaths: string[];
   kdp: KdpConfig;
   promotion: PromotionConfig;
+  style: StyleConfig;
+  sceneMap: SceneMapConfig;
+  critiquePanel: CritiquePanelConfig;
+  sourceAudit: SourceAuditConfig;
+  launchKit: LaunchKitConfig;
+  bookMatter: BookMatterConfig;
+  coverCheck: CoverCheckConfig;
+  revisionPlan: RevisionPlanConfig;
+  archive: ArchiveConfig;
+}
+
+export type VoiceStrictness = "light" | "standard" | "strict";
+
+export interface StyleConfig {
+  enabled: boolean;
+  bannedPhrases: string[];
+  voiceStrictness: VoiceStrictness;
+  lintOnEvaluate: boolean;
+}
+
+export interface SceneMapConfig {
+  enabled: boolean;
+  includeEmotionalValence: boolean;
+  includePromiseTracking: boolean;
+}
+
+export interface CritiquePanelConfig {
+  enabled: boolean;
+  reviewers: string[];
+  requireConsensus: boolean;
+  maxMeanDisagreement: number;
+}
+
+export interface SourceAuditConfig {
+  enabled: boolean;
+  requiredForModes: BookMode[];
+  flagUnsupportedStatistics: boolean;
+}
+
+export interface LaunchKitConfig {
+  enabled: boolean;
+  includeNewsletterSequence: boolean;
+  includePressKit: boolean;
+  includeBookClubGuide: boolean;
+}
+
+export interface SeriesConfig {
+  name: string;
+  bookNumber: number;
+  previousTitle?: string;
+  nextTitleTeaser?: string;
+}
+
+export interface BookMatterConfig {
+  frontMatter: string[];
+  backMatter: string[];
+  series: SeriesConfig | null;
+}
+
+export interface CoverCheckConfig {
+  enabled: boolean;
+  minEbookWidth: number;
+  minEbookHeight: number;
+  idealEbookWidth: number;
+  idealEbookHeight: number;
+}
+
+export interface RevisionPlanConfig {
+  requirePlanBeforeRewrite: boolean;
+  approvalRequired: boolean;
+}
+
+export interface ArchiveConfig {
+  includeState: boolean;
+  includeLedger: boolean;
+  includeReports: boolean;
 }
 
 export interface KdpConfig {
@@ -251,6 +329,14 @@ export interface PendingReviewerRevision {
   requestedFrom: PhaseName | "completed";
 }
 
+export interface PendingRevisionPlan {
+  requestedAt: string;
+  feedbackPath: string;
+  planPath: string;
+  status: "pending" | "approved" | "rejected";
+  note?: string;
+}
+
 export type ArtifactValidationCode =
   | "missing_required_target"
   | "missing_reported_artifact"
@@ -346,6 +432,35 @@ export interface KdpPackageManifest {
   issues: KdpPreflightIssue[];
 }
 
+export interface StyleProfile {
+  generatedAt: string;
+  runId: string;
+  sourceArtifacts: string[];
+  voicePrinciples: string[];
+  sentenceRhythm: string;
+  diction: string[];
+  povDistance: string;
+  dialogueRules: string[];
+  bannedPhrases: string[];
+  preferredOpenings: string[];
+  preferredEndings: string[];
+  examples: string[];
+}
+
+export interface StyleLintFinding {
+  severity: "info" | "warning" | "error";
+  code: string;
+  target: string;
+  evidence: string;
+  suggestedAction: string;
+}
+
+export interface StyleLintReport {
+  generatedAt: string;
+  runId: string;
+  findings: StyleLintFinding[];
+}
+
 export type HealthCheckSeverity = "info" | "warning" | "error";
 
 export interface HealthCheckResult {
@@ -378,6 +493,74 @@ export interface ManuscriptIntelligenceReport {
   generatedAt: string;
   runId: string;
   findings: ManuscriptIntelligenceFinding[];
+}
+
+export interface SceneEntry {
+  chapter: string;
+  sceneIndex: number;
+  title?: string;
+  pov?: string;
+  location?: string;
+  goal?: string;
+  conflict?: string;
+  turn?: string;
+  wordCount: number;
+  emotionalValence?: "positive" | "negative" | "mixed" | "neutral";
+  promisesSetup: string[];
+  promisesPaidOff: string[];
+  continuityRisks: string[];
+}
+
+export interface PacingDashboard {
+  generatedAt: string;
+  runId: string;
+  totalWords: number;
+  chapterCount: number;
+  averageChapterWords: number;
+  longestChapter: string | null;
+  shortestChapter: string | null;
+  findings: ManuscriptIntelligenceFinding[];
+}
+
+export interface CritiqueReviewerResult {
+  reviewer: string;
+  scores: QualityScores;
+  topStrengths: string[];
+  topConcerns: string[];
+  requiredFixes: string[];
+  optionalFixes: string[];
+}
+
+export interface CritiquePanelReport {
+  generatedAt: string;
+  runId: string;
+  reviewers: CritiqueReviewerResult[];
+  consensusScores: QualityScores;
+  disagreement: {
+    comparedDimensions: number;
+    meanAbsDelta: number | null;
+    highDisagreementDimensions: string[];
+  };
+  revisionPriorities: string[];
+}
+
+export interface ClaimEntry {
+  id: string;
+  chapter?: string;
+  claim: string;
+  claimType: "statistic" | "historical" | "medical" | "legal" | "financial" | "memoir" | "general";
+  sourceTitles: string[];
+  supportLevel: "strong" | "partial" | "missing" | "not-required";
+  risk: "low" | "medium" | "high";
+  suggestedFix: string;
+}
+
+export interface SourceAuditReport {
+  generatedAt: string;
+  runId: string;
+  mode: BookMode;
+  claims: ClaimEntry[];
+  findings: HealthCheckResult[];
 }
 
 export interface ShortStoryConcept {

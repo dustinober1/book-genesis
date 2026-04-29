@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import type { KdpConfig, RunConfig } from "./types.js";
+import type { BookMode, KdpConfig, RunConfig, SeriesConfig } from "./types.js";
 
 export const DEFAULT_RUN_CONFIG: RunConfig = {
   maxRetriesPerPhase: 1,
@@ -29,6 +29,55 @@ export const DEFAULT_RUN_CONFIG: RunConfig = {
     shortStoryMaxPages: 15,
     shortStoryPurpose: "lead-magnet",
   },
+  style: {
+    enabled: true,
+    bannedPhrases: [],
+    voiceStrictness: "standard",
+    lintOnEvaluate: true,
+  },
+  sceneMap: {
+    enabled: true,
+    includeEmotionalValence: true,
+    includePromiseTracking: true,
+  },
+  critiquePanel: {
+    enabled: true,
+    reviewers: ["developmental-editor", "line-editor", "target-reader", "market-editor", "continuity-editor"],
+    requireConsensus: true,
+    maxMeanDisagreement: 8,
+  },
+  sourceAudit: {
+    enabled: true,
+    requiredForModes: ["memoir", "prescriptive-nonfiction", "narrative-nonfiction"],
+    flagUnsupportedStatistics: true,
+  },
+  launchKit: {
+    enabled: true,
+    includeNewsletterSequence: true,
+    includePressKit: true,
+    includeBookClubGuide: true,
+  },
+  bookMatter: {
+    frontMatter: ["title-page", "copyright"],
+    backMatter: ["author-note", "newsletter-cta"],
+    series: null,
+  },
+  coverCheck: {
+    enabled: true,
+    minEbookWidth: 625,
+    minEbookHeight: 1000,
+    idealEbookWidth: 1600,
+    idealEbookHeight: 2560,
+  },
+  revisionPlan: {
+    requirePlanBeforeRewrite: true,
+    approvalRequired: true,
+  },
+  archive: {
+    includeState: true,
+    includeLedger: true,
+    includeReports: true,
+  },
 };
 
 const VALID_BOOK_MODES = new Set<RunConfig["bookMode"]>([
@@ -46,6 +95,7 @@ const VALID_SHORT_STORY_PURPOSES = new Set<RunConfig["promotion"]["shortStoryPur
   "world-teaser",
   "content-series",
 ]);
+const VALID_VOICE_STRICTNESS = new Set<RunConfig["style"]["voiceStrictness"]>(["light", "standard", "strict"]);
 
 function assertPositiveInteger(name: string, value: number) {
   if (!Number.isInteger(value) || value < 1) {
@@ -74,6 +124,25 @@ function normalizeStringList(name: string, value: unknown) {
       throw new Error(`${name} must contain only non-empty strings.`);
     }
     return entry.trim();
+  });
+}
+
+function assertBoolean(name: string, value: unknown): asserts value is boolean {
+  if (typeof value !== "boolean") {
+    throw new Error(`${name} must be a boolean.`);
+  }
+}
+
+function normalizeBookModeList(name: string, value: unknown) {
+  if (!Array.isArray(value)) {
+    throw new Error(`${name} must be an array of book modes.`);
+  }
+
+  return value.map((entry) => {
+    if (typeof entry !== "string" || !VALID_BOOK_MODES.has(entry as BookMode)) {
+      throw new Error(`${name} must contain only supported book modes.`);
+    }
+    return entry as BookMode;
   });
 }
 
@@ -147,7 +216,108 @@ function normalizePromotionConfig(value: Partial<RunConfig["promotion"]> | undef
   return config;
 }
 
-function normalizeConfig(value: Partial<RunConfig>): RunConfig {
+function normalizeStyleConfig(value: Partial<RunConfig["style"]> | undefined): RunConfig["style"] {
+  const config = { ...DEFAULT_RUN_CONFIG.style, ...value };
+  assertBoolean("style.enabled", config.enabled);
+  assertBoolean("style.lintOnEvaluate", config.lintOnEvaluate);
+  config.bannedPhrases = normalizeStringList("style.bannedPhrases", config.bannedPhrases);
+  if (!VALID_VOICE_STRICTNESS.has(config.voiceStrictness)) {
+    throw new Error("style.voiceStrictness must be light, standard, or strict.");
+  }
+  return config;
+}
+
+function normalizeSceneMapConfig(value: Partial<RunConfig["sceneMap"]> | undefined): RunConfig["sceneMap"] {
+  const config = { ...DEFAULT_RUN_CONFIG.sceneMap, ...value };
+  assertBoolean("sceneMap.enabled", config.enabled);
+  assertBoolean("sceneMap.includeEmotionalValence", config.includeEmotionalValence);
+  assertBoolean("sceneMap.includePromiseTracking", config.includePromiseTracking);
+  return config;
+}
+
+function normalizeCritiquePanelConfig(value: Partial<RunConfig["critiquePanel"]> | undefined): RunConfig["critiquePanel"] {
+  const config = { ...DEFAULT_RUN_CONFIG.critiquePanel, ...value };
+  assertBoolean("critiquePanel.enabled", config.enabled);
+  assertBoolean("critiquePanel.requireConsensus", config.requireConsensus);
+  config.reviewers = normalizeStringList("critiquePanel.reviewers", config.reviewers);
+  if (config.reviewers.length === 0) {
+    throw new Error("critiquePanel.reviewers must include at least one reviewer.");
+  }
+  assertPositiveInteger("critiquePanel.maxMeanDisagreement", config.maxMeanDisagreement);
+  return config;
+}
+
+function normalizeSourceAuditConfig(value: Partial<RunConfig["sourceAudit"]> | undefined): RunConfig["sourceAudit"] {
+  const config = { ...DEFAULT_RUN_CONFIG.sourceAudit, ...value };
+  assertBoolean("sourceAudit.enabled", config.enabled);
+  assertBoolean("sourceAudit.flagUnsupportedStatistics", config.flagUnsupportedStatistics);
+  config.requiredForModes = normalizeBookModeList("sourceAudit.requiredForModes", config.requiredForModes);
+  return config;
+}
+
+function normalizeLaunchKitConfig(value: Partial<RunConfig["launchKit"]> | undefined): RunConfig["launchKit"] {
+  const config = { ...DEFAULT_RUN_CONFIG.launchKit, ...value };
+  assertBoolean("launchKit.enabled", config.enabled);
+  assertBoolean("launchKit.includeNewsletterSequence", config.includeNewsletterSequence);
+  assertBoolean("launchKit.includePressKit", config.includePressKit);
+  assertBoolean("launchKit.includeBookClubGuide", config.includeBookClubGuide);
+  return config;
+}
+
+function normalizeSeriesConfig(value: unknown): SeriesConfig | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("bookMatter.series must be null or an object.");
+  }
+  const source = value as Partial<SeriesConfig>;
+  if (typeof source.name !== "string" || !source.name.trim()) {
+    throw new Error("bookMatter.series.name must be a non-empty string.");
+  }
+  assertPositiveInteger("bookMatter.series.bookNumber", Number(source.bookNumber));
+  return {
+    name: source.name.trim(),
+    bookNumber: Number(source.bookNumber),
+    previousTitle: typeof source.previousTitle === "string" && source.previousTitle.trim() ? source.previousTitle.trim() : undefined,
+    nextTitleTeaser: typeof source.nextTitleTeaser === "string" && source.nextTitleTeaser.trim() ? source.nextTitleTeaser.trim() : undefined,
+  };
+}
+
+function normalizeBookMatterConfig(value: Partial<RunConfig["bookMatter"]> | undefined): RunConfig["bookMatter"] {
+  const config = { ...DEFAULT_RUN_CONFIG.bookMatter, ...value };
+  config.frontMatter = normalizeStringList("bookMatter.frontMatter", config.frontMatter);
+  config.backMatter = normalizeStringList("bookMatter.backMatter", config.backMatter);
+  config.series = normalizeSeriesConfig(config.series);
+  return config;
+}
+
+function normalizeCoverCheckConfig(value: Partial<RunConfig["coverCheck"]> | undefined): RunConfig["coverCheck"] {
+  const config = { ...DEFAULT_RUN_CONFIG.coverCheck, ...value };
+  assertBoolean("coverCheck.enabled", config.enabled);
+  assertPositiveInteger("coverCheck.minEbookWidth", config.minEbookWidth);
+  assertPositiveInteger("coverCheck.minEbookHeight", config.minEbookHeight);
+  assertPositiveInteger("coverCheck.idealEbookWidth", config.idealEbookWidth);
+  assertPositiveInteger("coverCheck.idealEbookHeight", config.idealEbookHeight);
+  return config;
+}
+
+function normalizeRevisionPlanConfig(value: Partial<RunConfig["revisionPlan"]> | undefined): RunConfig["revisionPlan"] {
+  const config = { ...DEFAULT_RUN_CONFIG.revisionPlan, ...value };
+  assertBoolean("revisionPlan.requirePlanBeforeRewrite", config.requirePlanBeforeRewrite);
+  assertBoolean("revisionPlan.approvalRequired", config.approvalRequired);
+  return config;
+}
+
+function normalizeArchiveConfig(value: Partial<RunConfig["archive"]> | undefined): RunConfig["archive"] {
+  const config = { ...DEFAULT_RUN_CONFIG.archive, ...value };
+  assertBoolean("archive.includeState", config.includeState);
+  assertBoolean("archive.includeLedger", config.includeLedger);
+  assertBoolean("archive.includeReports", config.includeReports);
+  return config;
+}
+
+export function normalizeRunConfig(value: Partial<RunConfig>): RunConfig {
   const config: RunConfig = { ...DEFAULT_RUN_CONFIG, ...value };
 
   assertPositiveInteger("maxRetriesPerPhase", config.maxRetriesPerPhase);
@@ -220,6 +390,15 @@ function normalizeConfig(value: Partial<RunConfig>): RunConfig {
   config.exportFormats = config.exportFormats.map((entry) => entry.trim()) as RunConfig["exportFormats"];
   config.kdp = normalizeKdpConfig(value.kdp);
   config.promotion = normalizePromotionConfig(value.promotion);
+  config.style = normalizeStyleConfig(value.style);
+  config.sceneMap = normalizeSceneMapConfig(value.sceneMap);
+  config.critiquePanel = normalizeCritiquePanelConfig(value.critiquePanel);
+  config.sourceAudit = normalizeSourceAuditConfig(value.sourceAudit);
+  config.launchKit = normalizeLaunchKitConfig(value.launchKit);
+  config.bookMatter = normalizeBookMatterConfig(value.bookMatter);
+  config.coverCheck = normalizeCoverCheckConfig(value.coverCheck);
+  config.revisionPlan = normalizeRevisionPlanConfig(value.revisionPlan);
+  config.archive = normalizeArchiveConfig(value.archive);
 
   return config;
 }
@@ -234,5 +413,5 @@ export function loadRunConfig(workspaceRoot: string, configPath?: string) {
   }
 
   const parsed = JSON.parse(readFileSync(resolvedPath, "utf8")) as Partial<RunConfig>;
-  return normalizeConfig(parsed);
+  return normalizeRunConfig(parsed);
 }

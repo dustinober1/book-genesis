@@ -98,7 +98,7 @@ Add configuration fields for new release features without changing behavior yet.
 
 ### Implementation steps
 
-- [ ] Add config interfaces:
+- [x] Add config interfaces:
   - `StyleConfig`
   - `SceneMapConfig`
   - `CritiquePanelConfig`
@@ -109,10 +109,10 @@ Add configuration fields for new release features without changing behavior yet.
   - `CoverCheckConfig`
   - `RevisionPlanConfig`
   - `ArchiveConfig`
-- [ ] Add safe defaults to `DEFAULT_RUN_CONFIG`.
-- [ ] Normalize and validate nested config values.
-- [ ] Ensure `readRunState()` can normalize older run configs without failing.
-- [ ] Add tests for missing config, partial config, invalid feature config, and legacy run-state normalization.
+- [x] Add safe defaults to `DEFAULT_RUN_CONFIG`.
+- [x] Normalize and validate nested config values.
+- [x] Ensure `readRunState()` can normalize older run configs without failing.
+- [x] Add tests for missing config, partial config, invalid feature config, and legacy run-state normalization.
 
 ### Suggested config shape
 
@@ -172,11 +172,11 @@ Add configuration fields for new release features without changing behavior yet.
 
 ### Acceptance criteria
 
-- [ ] `npm test` passes.
-- [ ] `npm run typecheck` passes.
-- [ ] Existing configs still load.
-- [ ] Missing nested config uses defaults.
-- [ ] Invalid enum values throw actionable errors.
+- [x] `npm test` passes.
+- [x] `npm run typecheck` passes.
+- [x] Existing configs still load.
+- [x] Missing nested config uses defaults.
+- [x] Invalid enum values throw actionable errors.
 
 ---
 
@@ -207,13 +207,13 @@ Make first-run setup easier by writing a mode-specific starter `book-genesis.con
 
 ### Implementation steps
 
-- [ ] Create `buildStarterConfig(mode)`.
-- [ ] Create `writeStarterConfig(workspaceRoot, mode, force)`.
-- [ ] Do not overwrite an existing config unless `--force` is present.
-- [ ] Include comments as adjacent Markdown guidance if JSON comments are not supported.
-- [ ] For each mode, tune target word count, artifact defaults, approval phases, rubric behavior, promotion settings, KDP defaults, and book matter defaults.
-- [ ] Add command completions for mode names.
-- [ ] Add README examples.
+- [x] Create `buildStarterConfig(mode)`.
+- [x] Create `writeStarterConfig(workspaceRoot, mode, force)`.
+- [x] Do not overwrite an existing config unless `--force` is present.
+- [x] Include comments as adjacent Markdown guidance if JSON comments are not supported.
+- [x] For each mode, tune target word count, artifact defaults, approval phases, rubric behavior, promotion settings, KDP defaults, and book matter defaults.
+- [x] Add command completions for mode names.
+- [x] Add README examples.
 
 ### Suggested outputs
 
@@ -222,10 +222,10 @@ Make first-run setup easier by writing a mode-specific starter `book-genesis.con
 
 ### Acceptance criteria
 
-- [ ] Command creates valid config for every supported book mode.
-- [ ] Command refuses to overwrite without `--force`.
-- [ ] Generated config passes `loadRunConfig()`.
-- [ ] Tests cover all modes.
+- [x] Command creates valid config for every supported book mode.
+- [x] Command refuses to overwrite without `--force`.
+- [x] Generated config passes `loadRunConfig()`.
+- [x] Tests cover all modes.
 
 ---
 
@@ -290,8 +290,8 @@ interface StyleLintFinding {
 
 ### Implementation steps
 
-- [ ] Build style profile from kickoff, foundation, voice DNA, sample chapters, and config.
-- [ ] Add deterministic lint checks first:
+- [x] Build style profile from kickoff, foundation, voice DNA, sample chapters, and config.
+- [x] Add deterministic lint checks first:
   - banned phrase frequency
   - repeated generic transitions
   - excessive sentence-length uniformity
@@ -299,21 +299,21 @@ interface StyleLintFinding {
   - repeated chapter closings
   - dialogue tag overuse
   - weak placeholder phrasing
-- [ ] Add profile-to-manuscript drift checks:
+- [x] Add profile-to-manuscript drift checks:
   - profile terms absent from manuscript
   - tone mismatch indicators
   - repeated AI-ish phrasing
-- [ ] Include style results in `/book-genesis audit`.
-- [ ] Make evaluate prompt consult style-lint output when present.
-- [ ] Do not block phase completion initially; report warnings first.
+- [x] Include style results in `/book-genesis audit`.
+- [x] Make evaluate prompt consult style-lint output when present.
+- [x] Do not block phase completion initially; report warnings first.
 
 ### Acceptance criteria
 
-- [ ] Style profile writes Markdown and JSON.
-- [ ] Style lint writes Markdown and JSON.
-- [ ] Lint detects banned phrases and repeated openings.
-- [ ] Audit surfaces top style findings.
-- [ ] Tests cover empty manuscript, existing profile, banned phrase detection, and JSON formatting.
+- [x] Style profile writes Markdown and JSON.
+- [x] Style lint writes Markdown and JSON.
+- [x] Lint detects banned phrases and repeated openings.
+- [x] Audit surfaces top style findings.
+- [x] Tests cover empty manuscript, existing profile, banned phrase detection, and JSON formatting.
 
 ---
 
@@ -381,19 +381,19 @@ interface PacingDashboard {
 
 ### Implementation steps
 
-- [ ] Parse chapter files and derive chapter word counts.
-- [ ] Infer scene boundaries from headings, horizontal rules, or blank-line conventions.
-- [ ] Support graceful fallback where scene details are unknown.
-- [ ] Build Markdown table with columns for chapter, scene, POV, location, goal, conflict, turn, words, promise setup/payoff.
-- [ ] Build pacing dashboard with chapter length variance, long/short outliers, POV clustering, repeated settings, and missing payoff warnings.
-- [ ] Integrate top findings into manuscript intelligence and audit.
+- [x] Parse chapter files and derive chapter word counts.
+- [x] Infer scene boundaries from headings, horizontal rules, or blank-line conventions.
+- [x] Support graceful fallback where scene details are unknown.
+- [x] Build Markdown table with columns for chapter, scene, POV, location, goal, conflict, turn, words, promise setup/payoff.
+- [x] Build pacing dashboard with chapter length variance, long/short outliers, POV clustering, repeated settings, and missing payoff warnings.
+- [x] Integrate top findings into manuscript intelligence and audit.
 
 ### Acceptance criteria
 
-- [ ] Scene map works with one chapter or many chapters.
-- [ ] Pacing dashboard identifies chapter length outliers.
-- [ ] JSON output is stable and testable.
-- [ ] Commands do not alter run state except writing reports.
+- [x] Scene map works with one chapter or many chapters.
+- [x] Pacing dashboard identifies chapter length outliers.
+- [x] JSON output is stable and testable.
+- [x] Commands do not alter run state except writing reports.
 
 ---
 
@@ -462,20 +462,20 @@ interface CritiquePanelReport {
 
 ### Implementation steps
 
-- [ ] Define reviewer persona contracts.
-- [ ] Add deterministic aggregation helpers for reviewer scores.
-- [ ] Calculate consensus scores by median or trimmed mean.
-- [ ] Flag high disagreement dimensions using config threshold.
-- [ ] Update evaluate prompt to produce or consume critique-panel artifacts.
-- [ ] Add quality-gate option to use consensus scores when critique panel is enabled.
-- [ ] Keep independent evaluation support; do not remove existing behavior.
+- [x] Define reviewer persona contracts.
+- [x] Add deterministic aggregation helpers for reviewer scores.
+- [x] Calculate consensus scores by median or trimmed mean.
+- [x] Flag high disagreement dimensions using config threshold.
+- [x] Update evaluate prompt to produce or consume critique-panel artifacts.
+- [x] Add quality-gate option to use consensus scores when critique panel is enabled.
+- [x] Keep independent evaluation support; do not remove existing behavior.
 
 ### Acceptance criteria
 
-- [ ] Critique panel report has at least three reviewer perspectives by default.
-- [ ] Disagreement calculation is tested.
-- [ ] Evaluation still passes existing tests.
-- [ ] Quality gate remains deterministic.
+- [x] Critique panel report has at least three reviewer perspectives by default.
+- [x] Disagreement calculation is tested.
+- [x] Evaluation still passes existing tests.
+- [x] Quality gate remains deterministic.
 
 ---
 
@@ -536,19 +536,19 @@ interface SourceAuditReport {
 
 ### Implementation steps
 
-- [ ] Read source ledger entries.
-- [ ] Detect likely claims from manuscript paragraphs using regex and heuristic patterns.
-- [ ] Flag statistics, dates, medical/legal/financial claims, and broad authority claims.
-- [ ] For memoir, distinguish lived-experience claims from external factual claims.
-- [ ] Mark support level based on ledger/source mentions.
-- [ ] Add evaluate-phase guidance for high-risk unsupported claims.
-- [ ] Add audit integration.
+- [x] Read source ledger entries.
+- [x] Detect likely claims from manuscript paragraphs using regex and heuristic patterns.
+- [x] Flag statistics, dates, medical/legal/financial claims, and broad authority claims.
+- [x] For memoir, distinguish lived-experience claims from external factual claims.
+- [x] Mark support level based on ledger/source mentions.
+- [x] Add evaluate-phase guidance for high-risk unsupported claims.
+- [x] Add audit integration.
 
 ### Acceptance criteria
 
-- [ ] Nonfiction modes warn when claims have no ledger support.
-- [ ] Fiction mode does not require source audit by default.
-- [ ] Tests cover statistics, date claims, memoir claims, and missing ledger.
+- [x] Nonfiction modes warn when claims have no ledger support.
+- [x] Fiction mode does not require source audit by default.
+- [x] Tests cover statistics, date claims, memoir claims, and missing ledger.
 
 ---
 
@@ -586,25 +586,25 @@ Allow the author/runtime to compare multiple book architectures before committin
 
 ### Implementation steps
 
-- [ ] Add `selectedVariantPath?: string` to `RunState`.
-- [ ] Build variant scaffolds for fiction and nonfiction modes.
-- [ ] Generate comparison criteria:
+- [x] Add `selectedVariantPath?: string` to `RunState`.
+- [x] Build variant scaffolds for fiction and nonfiction modes.
+- [x] Generate comparison criteria:
   - reader promise fit
   - structure strength
   - originality
   - market clarity
   - drafting risk
   - revision risk
-- [ ] `choose-variant` should persist the choice and queue foundation refinement.
-- [ ] Foundation prompt should use selected variant when present.
-- [ ] Do not force variants for every run; make it optional.
+- [x] `choose-variant` should persist the choice and queue foundation refinement.
+- [x] Foundation prompt should use selected variant when present.
+- [x] Do not force variants for every run; make it optional.
 
 ### Acceptance criteria
 
-- [ ] Variant generation writes count-specific files.
-- [ ] Choosing a variant validates the requested number exists.
-- [ ] Selected variant is included in phase prompt context.
-- [ ] Existing foundation flow still works without variants.
+- [x] Variant generation writes count-specific files.
+- [x] Choosing a variant validates the requested number exists.
+- [x] Selected variant is included in phase prompt context.
+- [x] Existing foundation flow still works without variants.
 
 ---
 
@@ -652,19 +652,19 @@ interface PendingRevisionPlan {
 
 ### Implementation steps
 
-- [ ] Add pending revision plan to run state.
-- [ ] `feedback-plan` records feedback and writes plan artifacts without launching `revise` immediately.
-- [ ] `approve-revision-plan` routes to `revise` with the approved plan.
-- [ ] `reject-revision-plan` stops the run and records note.
-- [ ] Existing `/book-genesis feedback` should continue working.
-- [ ] If `revisionPlan.requirePlanBeforeRewrite` is true, guide users toward feedback-plan.
+- [x] Add pending revision plan to run state.
+- [x] `feedback-plan` records feedback and writes plan artifacts without launching `revise` immediately.
+- [x] `approve-revision-plan` routes to `revise` with the approved plan.
+- [x] `reject-revision-plan` stops the run and records note.
+- [x] Existing `/book-genesis feedback` should continue working.
+- [x] If `revisionPlan.requirePlanBeforeRewrite` is true, guide users toward feedback-plan.
 
 ### Acceptance criteria
 
-- [ ] Feedback plan writes all required artifacts.
-- [ ] Approving launches revision.
-- [ ] Rejection records state and does not launch revision.
-- [ ] Tests cover all transitions.
+- [x] Feedback plan writes all required artifacts.
+- [x] Approving launches revision.
+- [x] Rejection records state and does not launch revision.
+- [x] Tests cover all transitions.
 
 ---
 
@@ -705,23 +705,23 @@ Turn the current short-story package into a broader author launch package.
 
 ### Implementation steps
 
-- [ ] Build launch kit from delivery artifacts, KDP metadata, synopsis, logline, and package summary.
-- [ ] Include fiction/nonfiction mode-specific templates.
-- [ ] Add retailer description variants:
+- [x] Build launch kit from delivery artifacts, KDP metadata, synopsis, logline, and package summary.
+- [x] Include fiction/nonfiction mode-specific templates.
+- [x] Add retailer description variants:
   - short description
   - long description
   - high-concept hook
   - reader-transformation angle
   - series angle when configured
-- [ ] Add launch social calendar with 14-day, 30-day, and 60-day options.
-- [ ] Add audit readiness check for launch kit.
+- [x] Add launch social calendar with 14-day, 30-day, and 60-day options.
+- [x] Add audit readiness check for launch kit.
 
 ### Acceptance criteria
 
-- [ ] Command writes every launch-kit artifact.
-- [ ] Missing delivery assets produce warnings, not crashes.
-- [ ] Manifest includes file list and source inputs.
-- [ ] Tests cover fiction and nonfiction modes.
+- [x] Command writes every launch-kit artifact.
+- [x] Missing delivery assets produce warnings, not crashes.
+- [x] Manifest includes file list and source inputs.
+- [x] Tests cover fiction and nonfiction modes.
 
 ---
 
@@ -755,23 +755,23 @@ Make export outputs closer to publishable interiors.
 
 ### Implementation steps
 
-- [ ] Generate front/back matter from config and delivery assets.
-- [ ] Add series fields:
+- [x] Generate front/back matter from config and delivery assets.
+- [x] Add series fields:
   - series name
   - book number
   - previous title
   - next title teaser
-- [ ] Include front/back matter in Markdown export.
-- [ ] Include front/back matter in DOCX and EPUB export where practical.
-- [ ] Add KDP metadata awareness for series fields.
-- [ ] Add publishing readiness checks for missing copyright/author CTA where configured.
+- [x] Include front/back matter in Markdown export.
+- [x] Include front/back matter in DOCX and EPUB export where practical.
+- [x] Add KDP metadata awareness for series fields.
+- [x] Add publishing readiness checks for missing copyright/author CTA where configured.
 
 ### Acceptance criteria
 
-- [ ] Export includes configured front and back matter.
-- [ ] Series metadata is emitted when configured.
-- [ ] Existing exports still work when book matter is empty.
-- [ ] Tests cover front matter only, back matter only, and series metadata.
+- [x] Export includes configured front and back matter.
+- [x] Series metadata is emitted when configured.
+- [x] Existing exports still work when book matter is empty.
+- [x] Tests cover front matter only, back matter only, and series metadata.
 
 ---
 
@@ -806,21 +806,21 @@ Validate real cover assets, not just prompts and specs.
 
 ### Implementation steps
 
-- [ ] Support local paths inside workspace/run directory.
-- [ ] Validate file existence and extension.
-- [ ] For JPEG/PNG, parse image dimensions using a lightweight dependency or safe built-in parser.
-- [ ] Validate ebook minimum size, ideal ratio, and max file size.
-- [ ] For paperback PDF, at minimum validate extension and emit checklist warnings if exact PDF inspection is not available.
-- [ ] Estimate spine eligibility using current manuscript word/page estimate.
-- [ ] Add cover-check summary to KDP preflight.
+- [x] Support local paths inside workspace/run directory.
+- [x] Validate file existence and extension.
+- [x] For JPEG/PNG, parse image dimensions using a lightweight dependency or safe built-in parser.
+- [x] Validate ebook minimum size, ideal ratio, and max file size.
+- [x] For paperback PDF, at minimum validate extension and emit checklist warnings if exact PDF inspection is not available.
+- [x] Estimate spine eligibility using current manuscript word/page estimate.
+- [x] Add cover-check summary to KDP preflight.
 
 ### Acceptance criteria
 
-- [ ] Missing file reports actionable error.
-- [ ] Undersized ebook cover reports error.
-- [ ] Correctly sized ebook cover reports OK.
-- [ ] Paperback target reports page-count/spine warning.
-- [ ] Tests avoid heavyweight binary fixtures where possible.
+- [x] Missing file reports actionable error.
+- [x] Undersized ebook cover reports error.
+- [x] Correctly sized ebook cover reports OK.
+- [x] Paperback target reports page-count/spine warning.
+- [x] Tests avoid heavyweight binary fixtures where possible.
 
 ---
 
@@ -852,16 +852,16 @@ Create a handoff-ready archive manifest for backups, collaborators, or later pub
 
 ### Implementation steps
 
-- [ ] Build manifest including manuscript, chapters, story bible, ledger, config snapshot, delivery assets, evaluations, KDP package, promotion assets, and launch kit.
-- [ ] Add checksums if simple and reliable.
-- [ ] Do not zip unless a dependency-free approach is available; manifest-only is acceptable for this release.
-- [ ] Include missing-file warnings.
+- [x] Build manifest including manuscript, chapters, story bible, ledger, config snapshot, delivery assets, evaluations, KDP package, promotion assets, and launch kit.
+- [x] Add checksums if simple and reliable.
+- [x] Do not zip unless a dependency-free approach is available; manifest-only is acceptable for this release.
+- [x] Include missing-file warnings.
 
 ### Acceptance criteria
 
-- [ ] Archive manifest is stable and complete.
-- [ ] Missing optional artifacts do not crash.
-- [ ] Tests cover manifest generation.
+- [x] Archive manifest is stable and complete.
+- [x] Missing optional artifacts do not crash.
+- [x] Tests cover manifest generation.
 
 ---
 
@@ -933,10 +933,10 @@ Safe fixes only:
 
 ### Acceptance criteria
 
-- [ ] Commands work without active run when explicit run-dir is provided.
-- [ ] Commands produce useful errors when no run can be resolved.
-- [ ] JSON versions are parseable.
-- [ ] Doctor fixes are non-destructive.
+- [x] Commands work without active run when explicit run-dir is provided.
+- [x] Commands produce useful errors when no run can be resolved.
+- [x] JSON versions are parseable.
+- [x] Doctor fixes are non-destructive.
 
 ---
 
@@ -954,18 +954,18 @@ Prevent prompt regressions as the runtime adds new feature contracts.
 
 ### Required checks
 
-- [ ] System prompt requires disk artifacts and phase completion tool.
-- [ ] Foundation prompt references selected variants when present.
-- [ ] Write prompt requires chapter briefs, continuity report, style profile, and scene-map compatibility.
-- [ ] Evaluate prompt requires quality gate, style lint awareness, source audit awareness, critique panel awareness, and revision plan output guidance.
-- [ ] Revise prompt respects approved revision plan when present.
-- [ ] Deliver prompt includes launch kit, front/back matter, KDP readiness, and promotion package guidance.
+- [x] System prompt requires disk artifacts and phase completion tool.
+- [x] Foundation prompt references selected variants when present.
+- [x] Write prompt requires chapter briefs, continuity report, style profile, and scene-map compatibility.
+- [x] Evaluate prompt requires quality gate, style lint awareness, source audit awareness, critique panel awareness, and revision plan output guidance.
+- [x] Revise prompt respects approved revision plan when present.
+- [x] Deliver prompt includes launch kit, front/back matter, KDP readiness, and promotion package guidance.
 
 ### Acceptance criteria
 
-- [ ] Prompt tests fail if required feature contracts are removed.
-- [ ] Prompt tests are not brittle around exact prose.
-- [ ] Existing prompt behavior remains compatible.
+- [x] Prompt tests fail if required feature contracts are removed.
+- [x] Prompt tests are not brittle around exact prose.
+- [x] Existing prompt behavior remains compatible.
 
 ---
 
@@ -982,26 +982,26 @@ Make `/book-genesis audit` the single best command for readiness assessment.
 
 ### Add audit sections
 
-- [ ] Artifact validation.
-- [ ] Manuscript intelligence.
-- [ ] Style lint.
-- [ ] Scene map and pacing.
-- [ ] Critique panel status.
-- [ ] Source audit status.
-- [ ] Publishing readiness.
-- [ ] KDP readiness.
-- [ ] Cover-check readiness.
-- [ ] Promotion readiness.
-- [ ] Launch-kit readiness.
-- [ ] Archive readiness.
-- [ ] Next actions prioritized by severity.
+- [x] Artifact validation.
+- [x] Manuscript intelligence.
+- [x] Style lint.
+- [x] Scene map and pacing.
+- [x] Critique panel status.
+- [x] Source audit status.
+- [x] Publishing readiness.
+- [x] KDP readiness.
+- [x] Cover-check readiness.
+- [x] Promotion readiness.
+- [x] Launch-kit readiness.
+- [x] Archive readiness.
+- [x] Next actions prioritized by severity.
 
 ### Acceptance criteria
 
-- [ ] Audit still works on incomplete runs.
-- [ ] Audit JSON includes all new sections.
-- [ ] Audit Markdown remains readable.
-- [ ] Top next actions avoid duplicate messages.
+- [x] Audit still works on incomplete runs.
+- [x] Audit JSON includes all new sections.
+- [x] Audit Markdown remains readable.
+- [x] Top next actions avoid duplicate messages.
 
 ---
 
@@ -1018,23 +1018,23 @@ Document the release so operators know how to use it.
 
 ### README updates
 
-- [ ] Add command quick reference entries for all new commands.
-- [ ] Add recommended operator workflows:
+- [x] Add command quick reference entries for all new commands.
+- [x] Add recommended operator workflows:
   - first-time setup
   - fiction run
   - nonfiction run
   - reviewer feedback with plan approval
   - KDP packaging and cover validation
   - launch kit generation
-- [ ] Add config examples for each book mode.
-- [ ] Add troubleshooting for config, cover assets, source audit, and revision plans.
-- [ ] Add migration note for existing runs.
+- [x] Add config examples for each book mode.
+- [x] Add troubleshooting for config, cover assets, source audit, and revision plans.
+- [x] Add migration note for existing runs.
 
 ### Acceptance criteria
 
-- [ ] README command list matches implemented commands.
-- [ ] Examples are copy-pasteable.
-- [ ] No stale references to deprecated command names.
+- [x] README command list matches implemented commands.
+- [x] Examples are copy-pasteable.
+- [x] No stale references to deprecated command names.
 
 ---
 
@@ -1046,15 +1046,15 @@ Verify the release is stable before merge/tag.
 
 ### Steps
 
-- [ ] Run `npm test`.
-- [ ] Run `npm run typecheck`.
-- [ ] Run a manual smoke test in a temporary workspace:
+- [x] Run `npm test`.
+- [x] Run `npm run typecheck`.
+- [x] Run a manual smoke test in a temporary workspace:
   - `/book-genesis init-config fiction`
   - `/book-genesis run en a near-future thriller about memory theft`
   - `/book-genesis status`
   - `/book-genesis doctor`
   - `/book-genesis list-runs`
-- [ ] Create a synthetic completed run fixture or use test helper fixtures to validate:
+- [x] Create a synthetic completed run fixture or use test helper fixtures to validate:
   - style profile
   - style lint
   - scene map
@@ -1065,17 +1065,17 @@ Verify the release is stable before merge/tag.
   - cover check
   - archive
   - audit
-- [ ] Confirm generated artifacts stay inside run directory.
-- [ ] Confirm old runs still migrate safely.
-- [ ] Confirm README command reference is complete.
+- [x] Confirm generated artifacts stay inside run directory.
+- [x] Confirm old runs still migrate safely.
+- [x] Confirm README command reference is complete.
 
 ### Release checklist
 
-- [ ] Version bump in `package.json`.
-- [ ] Changelog or release notes added.
-- [ ] All tests pass.
-- [ ] Typecheck passes.
-- [ ] PR description includes command summary and migration notes.
+- [x] Version bump in `package.json`.
+- [x] Changelog or release notes added.
+- [x] All tests pass.
+- [x] Typecheck passes.
+- [x] PR description includes command summary and migration notes.
 
 ---
 
