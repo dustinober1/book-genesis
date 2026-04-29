@@ -96,6 +96,15 @@ const VALID_SHORT_STORY_PURPOSES = new Set<RunConfig["promotion"]["shortStoryPur
   "content-series",
 ]);
 const VALID_VOICE_STRICTNESS = new Set<RunConfig["style"]["voiceStrictness"]>(["light", "standard", "strict"]);
+export const VALID_GENRE_PRESETS = [
+  "thriller",
+  "memoir",
+  "business",
+  "devotional",
+  "childrens-picture-book",
+  "middle-grade",
+  "romantasy",
+] as const;
 
 function assertPositiveInteger(name: string, value: number) {
   if (!Number.isInteger(value) || value < 1) {
@@ -338,6 +347,13 @@ export function normalizeRunConfig(value: Partial<RunConfig>): RunConfig {
 
   if (!VALID_BOOK_MODES.has(config.bookMode)) {
     throw new Error("bookMode must be one of fiction, memoir, prescriptive-nonfiction, narrative-nonfiction, or childrens.");
+  }
+
+  if (config.genrePreset !== undefined) {
+    if (typeof config.genrePreset !== "string" || !VALID_GENRE_PRESETS.includes(config.genrePreset.trim() as (typeof VALID_GENRE_PRESETS)[number])) {
+      throw new Error(`genrePreset must be one of ${VALID_GENRE_PRESETS.join(", ")}.`);
+    }
+    config.genrePreset = config.genrePreset.trim();
   }
 
   if (typeof config.storyBibleEnabled !== "boolean") {
