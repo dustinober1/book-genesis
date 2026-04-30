@@ -21,7 +21,7 @@ test("loadRunConfig returns new defaults when config file is absent", () => {
     assert.equal(config.bookMode, DEFAULT_RUN_CONFIG.bookMode);
     assert.equal(config.storyBibleEnabled, true);
     assert.deepEqual(config.approvalPhases, []);
-    assert.deepEqual(config.exportFormats, ["md", "docx", "epub"]);
+    assert.deepEqual(config.exportFormats, ["md", "docx", "epub", "pdf"]);
     assert.deepEqual(config.kdp.formats, ["ebook", "paperback"]);
     assert.equal(config.kdp.bleed, false);
     assert.equal(config.promotion.shortStoryEnabled, true);

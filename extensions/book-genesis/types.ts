@@ -17,7 +17,7 @@ export type BookMode =
   | "narrative-nonfiction"
   | "childrens";
 
-export type ExportFormat = "md" | "docx" | "epub";
+export type ExportFormat = "md" | "docx" | "epub" | "pdf";
 export type KdpTargetFormat = "ebook" | "paperback";
 
 export interface RubricDimension {

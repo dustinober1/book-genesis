@@ -44,6 +44,7 @@ test("writeKdpPackage creates a KDP delivery package with copied assets and meta
     assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/kdp-metadata.json")), true);
     assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/kindle-ebook.epub")), true);
     assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/paperback-interior.docx")), true);
+    assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/paperback-interior.pdf")), true);
     assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/publishing-readiness.md")), true);
     assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/kdp-cover-prompts.md")), true);
     assert.equal(manifest.files.some((file) => file.endsWith("delivery/kdp/kdp-cover-specs.md")), true);
@@ -60,6 +61,10 @@ test("writeKdpPackage creates a KDP delivery package with copied assets and meta
     const coverSpecs = readFileSync(manifest.coverSpecsPath, "utf8");
     assert.match(coverSpecs, /1600 x 2560 px/);
     assert.match(coverSpecs, /print-ready PDF/);
+
+    const paperbackPdfPath = manifest.files.find((file) => file.endsWith("delivery/kdp/paperback-interior.pdf"));
+    const paperbackPdf = readFileSync(paperbackPdfPath!, "latin1");
+    assert.match(paperbackPdf, /\/MediaBox \[0 0 432 648\]/);
   });
 });
 

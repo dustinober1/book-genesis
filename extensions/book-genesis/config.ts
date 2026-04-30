@@ -14,7 +14,7 @@ export const DEFAULT_RUN_CONFIG: RunConfig = {
   storyBibleEnabled: true,
   approvalPhases: [],
   sampleChaptersForApproval: 3,
-  exportFormats: ["md", "docx", "epub"],
+  exportFormats: ["md", "docx", "epub", "pdf"],
   gitAutoInit: true,
   gitAutoCommit: true,
   gitCommitPaths: ["book-projects"],
@@ -88,7 +88,7 @@ const VALID_BOOK_MODES = new Set<RunConfig["bookMode"]>([
   "childrens",
 ]);
 
-const VALID_EXPORT_FORMATS = new Set<RunConfig["exportFormats"][number]>(["md", "docx", "epub"]);
+const VALID_EXPORT_FORMATS = new Set<RunConfig["exportFormats"][number]>(["md", "docx", "epub", "pdf"]);
 const VALID_KDP_FORMATS = new Set<NonNullable<KdpConfig["formats"]>[number]>(["ebook", "paperback"]);
 const VALID_SHORT_STORY_PURPOSES = new Set<RunConfig["promotion"]["shortStoryPurpose"]>([
   "lead-magnet",
@@ -378,7 +378,7 @@ export function normalizeRunConfig(value: Partial<RunConfig>): RunConfig {
 
   for (const format of config.exportFormats) {
     if (!VALID_EXPORT_FORMATS.has(format)) {
-      throw new Error("exportFormats must contain only md, docx, or epub.");
+      throw new Error("exportFormats must contain only md, docx, epub, or pdf.");
     }
   }
 

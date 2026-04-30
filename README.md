@@ -388,7 +388,8 @@ Notes:
 - Typical outputs are written under `book-projects/<run-id>/delivery/`.
 - Export also writes `delivery/publishing-readiness.md` with manuscript, metadata, cover, KDP, and website-readiness checks.
 - Markdown export is always created as `delivery/submission-manuscript.md`.
-- DOCX and EPUB are generated when present in `exportFormats`.
+- DOCX, EPUB, and PDF are generated when present in `exportFormats`.
+- PDF export creates a no-bleed paperback interior sized from `kdp.trimSize`; the standard KDP paperback target is `6 x 9`.
 - Export requires a full manuscript and a delivery synopsis artifact.
 - Export includes configured front matter and back matter in the generated manuscript and writes `delivery/series-metadata.json` when series metadata is configured.
 
@@ -409,7 +410,7 @@ Notes:
 
 - This command does not publish directly to Amazon KDP.
 - It generates `delivery/kdp/` files, copies KDP-ready assets, writes a preflight report against the current manual KDP workflow, and includes detailed cover-image prompts plus cover spec notes for eBook and paperback submission.
-- eBook packaging requires EPUB output; paperback packaging requires DOCX output. The command requests those export formats automatically for the KDP package.
+- eBook packaging requires EPUB output; paperback packaging requires DOCX output and a no-bleed paperback PDF. The command requests those export formats automatically for the KDP package.
 - Missing author name, invalid paperback trim size, and missing core metadata are reported in the preflight output.
 - Existing `cover-check` findings are included in the KDP preflight output.
 - Always review the package manually in KDP before publishing.
@@ -634,7 +635,7 @@ Book Genesis reads `book-genesis.config.json` from the workspace root. `--config
   "storyBibleEnabled": true,
   "approvalPhases": ["foundation", "write"],
   "sampleChaptersForApproval": 3,
-  "exportFormats": ["md", "docx", "epub"],
+  "exportFormats": ["md", "docx", "epub", "pdf"],
   "targetWordCount": 60000,
   "audience": "adult commercial fiction readers",
   "tone": "propulsive and emotionally grounded",

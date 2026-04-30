@@ -42,6 +42,21 @@ test("writeExportPackage records configured formats in the manifest", async () =
   });
 });
 
+test("writeExportPackage can create a no-bleed 6 x 9 paperback PDF", async () => {
+  await withRun(async (run) => {
+    run.config.kdp.trimSize = "6 x 9";
+    run.config.exportFormats = ["md", "pdf"];
+
+    const manifest = await writeExportPackage(run);
+    const pdfPath = manifest.files.find((file) => file.endsWith("submission-manuscript.pdf"));
+
+    assert.equal(typeof pdfPath, "string");
+    const pdf = readFileSync(pdfPath!, "latin1");
+    assert.match(pdf, /^%PDF-/);
+    assert.match(pdf, /\/MediaBox \[0 0 432 648\]/);
+  });
+});
+
 test("writeExportPackage uses the mode-specific synopsis artifact for prescriptive nonfiction", async () => {
   await withRun(async (run) => {
     run.config.bookMode = "prescriptive-nonfiction";

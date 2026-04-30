@@ -170,6 +170,7 @@ function resolveRequiredExportFormats(targets: KdpTargetFormat[], existingFormat
 
   if (targets.includes("paperback")) {
     required.add("docx");
+    required.add("pdf");
   }
 
   return [...required];
@@ -600,6 +601,13 @@ export async function writeKdpPackage(run: RunState): Promise<KdpPackageManifest
       const copiedDocxPath = path.join(kdpDir, "paperback-interior.docx");
       copyFileSync(sourceDocxPath, copiedDocxPath);
       copiedAssets.push(copiedDocxPath);
+    }
+
+    const sourcePdfPath = path.join(run.rootDir, "delivery", "submission-manuscript.pdf");
+    if (existsSync(sourcePdfPath)) {
+      const copiedPdfPath = path.join(kdpDir, "paperback-interior.pdf");
+      copyFileSync(sourcePdfPath, copiedPdfPath);
+      copiedAssets.push(copiedPdfPath);
     }
   }
 

@@ -32,6 +32,22 @@ function countWords(value: string) {
   return value.trim().split(/\s+/).filter(Boolean).length;
 }
 
+function parseTrimSize(value: string | undefined) {
+  if (!value) {
+    return { width: 6, height: 9 };
+  }
+
+  const match = value.match(/^\s*(\d+(?:\.\d+)?)\s*(?:x|×)\s*(\d+(?:\.\d+)?)\s*$/i);
+  if (!match) {
+    return { width: 6, height: 9 };
+  }
+
+  return {
+    width: Number(match[1]),
+    height: Number(match[2]),
+  };
+}
+
 function writePublishMetadata(run: RunState, deliveryDir: string, manuscriptMarkdown: string) {
   const manuscriptWords = countWords(markdownToPlainText(manuscriptMarkdown));
   const synopsisPath = (() => {
@@ -508,6 +524,179 @@ async function writeEpubExport(run: RunState, outputPath: string, manuscript: st
   return outputPath;
 }
 
+function pdfEscape(value: string) {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)")
+    .replace(/\r?\n/g, " ");
+}
+
+function markdownToPdfBlocks(markdown: string) {
+  const lines = markdown.split(/\r?\n/);
+  const blocks: string[] = [];
+  let buffer: string[] = [];
+  let inCodeFence = false;
+
+  const flush = () => {
+    const text = buffer.join(" ").replace(/\s+/g, " ").trim();
+    buffer = [];
+    if (text) {
+      blocks.push(markdownToPlainText(text));
+    }
+  };
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (trimmed.startsWith("```")) {
+      flush();
+      inCodeFence = !inCodeFence;
+      continue;
+    }
+
+    if (inCodeFence) {
+      buffer.push(rawLine);
+      continue;
+    }
+
+    if (!trimmed) {
+      flush();
+      blocks.push("");
+      continue;
+    }
+
+    if (/^#{1,6}\s+/.test(trimmed)) {
+      flush();
+      blocks.push(markdownToPlainText(trimmed));
+      blocks.push("");
+      continue;
+    }
+
+    const bulletMatch = trimmed.match(/^[-*+]\s+(.+)$/);
+    if (bulletMatch) {
+      flush();
+      blocks.push(`- ${markdownToPlainText(bulletMatch[1])}`);
+      continue;
+    }
+
+    buffer.push(trimmed);
+  }
+
+  flush();
+  return blocks;
+}
+
+function wrapPdfLine(text: string, maxCharacters: number) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxCharacters) {
+      current = candidate;
+      continue;
+    }
+
+    if (current) {
+      lines.push(current);
+    }
+
+    current = word;
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines.length > 0 ? lines : [""];
+}
+
+function buildPdfContentPages(markdown: string, pageWidth: number, pageHeight: number) {
+  const margin = 54;
+  const fontSize = 11;
+  const lineHeight = 15;
+  const usableWidth = pageWidth - margin * 2;
+  const maxCharacters = Math.max(28, Math.floor(usableWidth / (fontSize * 0.5)));
+  const bottomY = margin;
+  const topY = pageHeight - margin;
+  const pages: string[][] = [[]];
+  let y = topY;
+
+  const addLine = (line: string) => {
+    if (y < bottomY) {
+      pages.push([]);
+      y = topY;
+    }
+
+    pages[pages.length - 1].push(`BT /F1 ${fontSize} Tf ${margin} ${y} Td (${pdfEscape(line)}) Tj ET`);
+    y -= lineHeight;
+  };
+
+  for (const block of markdownToPdfBlocks(markdown)) {
+    if (!block) {
+      y -= lineHeight;
+      continue;
+    }
+
+    for (const line of wrapPdfLine(block, maxCharacters)) {
+      addLine(line);
+    }
+    y -= lineHeight;
+  }
+
+  return pages.filter((page) => page.length > 0);
+}
+
+function buildPdfDocument(pageWidth: number, pageHeight: number, pages: string[][]) {
+  const objects: string[] = [];
+  const addObject = (body: string) => {
+    objects.push(body);
+    return objects.length;
+  };
+
+  const pageCount = Math.max(1, pages.length);
+  const pageObjectIds: number[] = [];
+
+  const catalogId = addObject("<< /Type /Catalog /Pages 2 0 R >>");
+  const pagesId = addObject("");
+  const fontId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+
+  for (let index = 0; index < pageCount; index += 1) {
+    const content = `${pages[index]?.join("\n") ?? ""}\n`;
+    const contentId = addObject(`<< /Length ${Buffer.byteLength(content, "latin1")} >>\nstream\n${content}endstream`);
+    const pageId = addObject(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+    pageObjectIds.push(pageId);
+  }
+
+  objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageCount} >>`;
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  for (const [index, body] of objects.entries()) {
+    offsets.push(Buffer.byteLength(pdf, "latin1"));
+    pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+  }
+
+  const xrefOffset = Buffer.byteLength(pdf, "latin1");
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += "0000000000 65535 f \n";
+  for (let index = 1; index <= objects.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return pdf;
+}
+
+async function writePdfExport(run: RunState, outputPath: string, manuscript: string) {
+  const trimSize = parseTrimSize(run.config.kdp.trimSize);
+  const pageWidth = Math.round(trimSize.width * 72);
+  const pageHeight = Math.round(trimSize.height * 72);
+  const pages = buildPdfContentPages(manuscript, pageWidth, pageHeight);
+  writeFileSync(outputPath, buildPdfDocument(pageWidth, pageHeight, pages), "latin1");
+  return outputPath;
+}
+
 export async function writeExportPackage(
   run: RunState,
   requestedFormats: ExportFormat[] = run.config.exportFormats as ExportFormat[],
@@ -543,6 +732,11 @@ export async function writeExportPackage(
 
     if (format === "epub") {
       files.push(await writeEpubExport(run, path.join(deliveryDir, "submission-manuscript.epub"), wrappedManuscript));
+      continue;
+    }
+
+    if (format === "pdf") {
+      files.push(await writePdfExport(run, path.join(deliveryDir, "submission-manuscript.pdf"), wrappedManuscript));
     }
   }
 
