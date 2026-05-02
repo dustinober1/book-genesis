@@ -195,6 +195,60 @@ export interface BookMatterConfig {
   series: SeriesConfig | null;
 }
 
+export type SeriesStatus = "planning" | "drafting" | "completed";
+export type SeriesBookStatus = "planned" | "drafting" | "completed" | "published";
+
+export interface SeriesThread {
+  description: string;
+  openedInBook?: number;
+  targetPayoffBook?: number;
+  status: "open" | "resolved";
+}
+
+export interface SeriesBookEntry {
+  bookNumber: number;
+  title: string;
+  status: SeriesBookStatus;
+  premise: string;
+  role: string;
+  runDir?: string;
+  runId?: string;
+  linkedAt?: string;
+}
+
+export interface SeriesCreativePlan {
+  seriesPromise: string;
+  recurringCharacters: string[];
+  crossBookArcs: string[];
+  unresolvedThreads: SeriesThread[];
+  spinoffIdeas: string[];
+}
+
+export interface SeriesPublishingPlan {
+  seriesName: string;
+  readingOrderNote: string;
+  keywords: string[];
+  categories: string[];
+  launchPositioning: string;
+}
+
+export interface SeriesState {
+  version: 1;
+  id: string;
+  slug: string;
+  name: string;
+  workspaceRoot: string;
+  rootDir: string;
+  statePath: string;
+  status: SeriesStatus;
+  plannedBookCount: number;
+  createdAt: string;
+  updatedAt: string;
+  books: SeriesBookEntry[];
+  creative: SeriesCreativePlan;
+  publishing: SeriesPublishingPlan;
+}
+
 export interface CoverCheckConfig {
   enabled: boolean;
   minEbookWidth: number;

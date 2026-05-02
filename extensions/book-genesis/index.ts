@@ -52,6 +52,19 @@ import { recordDecision, recordSource } from "./ledger.js";
 import { buildShortStoryBrainstorm, writeShortStoryPackage } from "./promotion.js";
 import { approveRevisionPlan, createRevisionPlan, rejectRevisionPlan } from "./revision-plan.js";
 import { writePacingDashboard, writeSceneMap } from "./scenes.js";
+import {
+  addRunToSeries,
+  createSeriesState,
+  findLatestSeriesDir,
+  formatSeriesStatus,
+  isSeriesDirectory,
+  planNextSeriesBook,
+  readSeriesState,
+  writeSeriesBible,
+  writeSeriesContinuityReport,
+  writeSeriesPublishingMetadata,
+  writeSeriesState,
+} from "./series.js";
 import { buildRunStats, formatRunStats } from "./stats.js";
 import { addSourceToLedger, writeSourcePack } from "./source-pack.js";
 import { writeStyleLint, writeStyleProfile } from "./style.js";
@@ -283,6 +296,33 @@ function parseSampleCount(args: string) {
   return Number(match[1]);
 }
 
+function resolveSeriesDir(arg: string) {
+  const explicit = stripQuotes(arg);
+  if (explicit) {
+    return path.isAbsolute(explicit) ? explicit : path.resolve(process.cwd(), explicit);
+  }
+  return findLatestSeriesDir(process.cwd());
+}
+
+function parseOptionalSeriesDirAndRest(args: string) {
+  const { first, rest } = consumeFirstArg(args);
+  if (first) {
+    const explicit = stripQuotes(first);
+    const candidate = path.isAbsolute(explicit) ? explicit : path.resolve(process.cwd(), explicit);
+    if (isSeriesDirectory(candidate)) {
+      return {
+        seriesDir: candidate,
+        rest,
+      };
+    }
+  }
+
+  return {
+    seriesDir: resolveSeriesDir(""),
+    rest: args.trim(),
+  };
+}
+
 function buildSessionName(run: RunState) {
   return `Book Genesis · ${run.slug} · ${run.currentPhase}`;
 }
@@ -430,7 +470,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
     getArgumentCompletions: (prefix: string) => {
       const parts = prefix.trim().split(/\s+/);
       if (parts.length <= 1) {
-        return ["run", "resume", "status", "next", "dashboard", "map", "doctor-run", "stop", "approve", "reject", "feedback", "feedback-plan", "approve-revision-plan", "reject-revision-plan", "list-runs", "export", "kdp", "audit", "final-check", "doctor", "open", "stats", "init-config", "style-profile", "style-lint", "scene-map", "pacing", "critique-panel", "source-audit", "source", "source-pack", "revision-history", "bible-check", "beta-packet", "variants", "choose-variant", "launch-kit", "book-matter", "cover-check", "archive", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
+        return ["run", "resume", "status", "next", "dashboard", "map", "doctor-run", "stop", "approve", "reject", "feedback", "feedback-plan", "approve-revision-plan", "reject-revision-plan", "list-runs", "series", "export", "kdp", "audit", "final-check", "doctor", "open", "stats", "init-config", "style-profile", "style-lint", "scene-map", "pacing", "critique-panel", "source-audit", "source", "source-pack", "revision-history", "bible-check", "beta-packet", "variants", "choose-variant", "launch-kit", "book-matter", "cover-check", "archive", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
           .filter((item) => item.startsWith(parts[0] ?? ""))
           .map((item) => ({ value: item, label: item }));
       }
@@ -456,6 +496,115 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
             ctx.ui.notify((error as Error).message, "error");
           }
           return;
+        }
+
+        case "series": {
+          const action = parseSubcommand(rest);
+          switch (action.subcommand) {
+            case "init": {
+              const plannedBookCount = Number(parseFlagValue(action.rest, "--books") ?? 3);
+              const name = stripQuotes(removeFlagValue(action.rest, "--books").trim());
+              if (!name) {
+                ctx.ui.notify("Usage: /book-genesis series init <name> [--books <n>]", "error");
+                return;
+              }
+              try {
+                const series = createSeriesState(process.cwd(), name, { plannedBookCount });
+                writeSeriesState(series);
+                sendStatus(pi, `Series created.\n${series.rootDir}\n${formatSeriesStatus(series)}`);
+              } catch (error) {
+                ctx.ui.notify((error as Error).message, "error");
+              }
+              return;
+            }
+
+            case "status": {
+              const parsed = parseJsonFlag(action.rest);
+              const seriesDir = resolveSeriesDir(parsed.rest);
+              if (!seriesDir) {
+                ctx.ui.notify("No series directory provided and no series found.", "error");
+                return;
+              }
+              const series = readSeriesState(seriesDir);
+              sendStatus(pi, parsed.json ? JSON.stringify(series, null, 2) : formatSeriesStatus(series));
+              return;
+            }
+
+            case "add-run": {
+              const parsed = parseOptionalSeriesDirAndRest(action.rest);
+              if (!parsed.seriesDir) {
+                ctx.ui.notify("No series directory provided and no series found.", "error");
+                return;
+              }
+              const { first: runDir } = consumeFirstArg(parsed.rest);
+              if (!runDir) {
+                ctx.ui.notify("Usage: /book-genesis series add-run [series-dir] <run-dir>", "error");
+                return;
+              }
+              try {
+                const series = addRunToSeries(parsed.seriesDir, runDir);
+                sendStatus(pi, `Run linked to ${series.name}.\n${formatSeriesStatus(series)}`);
+              } catch (error) {
+                ctx.ui.notify((error as Error).message, "error");
+              }
+              return;
+            }
+
+            case "next-book": {
+              const parsed = parseOptionalSeriesDirAndRest(action.rest);
+              if (!parsed.seriesDir) {
+                ctx.ui.notify("No series directory provided and no series found.", "error");
+                return;
+              }
+              const result = planNextSeriesBook(parsed.seriesDir, parsed.rest);
+              sendStatus(pi, [
+                `Next book plan written for book ${result.bookNumber}.`,
+                result.briefPath,
+                result.configPath,
+                "",
+                result.command,
+              ].join("\n"));
+              return;
+            }
+
+            case "bible": {
+              const seriesDir = resolveSeriesDir(action.rest);
+              if (!seriesDir) {
+                ctx.ui.notify("No series directory provided and no series found.", "error");
+                return;
+              }
+              const result = writeSeriesBible(seriesDir);
+              sendStatus(pi, `Series bible written.\n${result.markdownPath}\n${result.jsonPath}`);
+              return;
+            }
+
+            case "metadata": {
+              const seriesDir = resolveSeriesDir(action.rest);
+              if (!seriesDir) {
+                ctx.ui.notify("No series directory provided and no series found.", "error");
+                return;
+              }
+              const result = writeSeriesPublishingMetadata(seriesDir);
+              sendStatus(pi, `Series publishing metadata written.\n${result.metadataPath}\n${result.readingOrderPath}\n${result.alsoByPath}\n${result.launchPositioningPath}`);
+              return;
+            }
+
+            case "continuity": {
+              const parsed = parseJsonFlag(action.rest);
+              const seriesDir = resolveSeriesDir(parsed.rest);
+              if (!seriesDir) {
+                ctx.ui.notify("No series directory provided and no series found.", "error");
+                return;
+              }
+              const result = writeSeriesContinuityReport(seriesDir);
+              sendStatus(pi, parsed.json ? JSON.stringify(result.report, null, 2) : `Series continuity report written.\n${result.markdownPath}\n${result.jsonPath}`);
+              return;
+            }
+
+            default:
+              ctx.ui.notify("Usage: /book-genesis series init|status|add-run|next-book|bible|metadata|continuity", "error");
+              return;
+          }
         }
 
         case "run": {

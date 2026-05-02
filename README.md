@@ -76,6 +76,7 @@ Command arguments that contain spaces should be quoted. Paths can be absolute or
 | `/book-genesis compare-drafts` | Compare two draft files and write a comparison report. |
 | `/book-genesis short-story` | Brainstorm or package a website lead-magnet short story. |
 | `/book-genesis list-runs` | List discovered runs. |
+| `/book-genesis series` | Manage a multi-book series above individual book runs. |
 | `/book-genesis export` | Generate final manuscript export files. |
 | `/book-genesis kdp` | Prepare a manual Amazon KDP submission package. |
 | `/book-genesis audit` | Report artifact, manuscript, publishing, KDP, and promotion readiness. |
@@ -368,6 +369,39 @@ Usage:
 - `/book-genesis list-runs`
 
 Use this when you do not remember a run directory and want to inspect all saved runs. Each listed run includes the same status format used by `/book-genesis status`.
+
+### `/book-genesis series`
+
+Manage an entire book series while keeping each book as a normal Book Genesis run.
+
+Usage:
+
+- `/book-genesis series init <series name> [--books <n>]`
+- `/book-genesis series status [series-dir] [--json]`
+- `/book-genesis series add-run [series-dir] <run-dir>`
+- `/book-genesis series next-book [series-dir] [notes]`
+- `/book-genesis series bible [series-dir]`
+- `/book-genesis series metadata [series-dir]`
+- `/book-genesis series continuity [series-dir] [--json]`
+
+Examples:
+
+- `/book-genesis series init "Memory City" --books 5`
+- `/book-genesis series add-run ./book-projects/<run-id>`
+- `/book-genesis series next-book "Escalate the city-wide memory conspiracy."`
+- `/book-genesis series bible`
+- `/book-genesis series metadata`
+- `/book-genesis series continuity --json`
+
+Notes:
+
+- Series workspaces are written under `book-series/<series-id>/`.
+- Each linked book remains a separate run under `book-projects/<run-id>/`.
+- `add-run` updates the linked run's `bookMatter.series` config with the series name and book number.
+- `next-book` writes `planning/book-XX/next-book-brief.md` and a starter `book-genesis.config.json`, then prints the `/book-genesis run --config ...` command to launch the next book.
+- `bible` writes shared creative planning files under `creative/`, including the series promise, book map, cross-book arcs, open threads, and spinoff or short-story ideas.
+- `metadata` writes publishing assets under `publishing/`, including reading order, whole-series metadata, also-by copy, and launch positioning.
+- `continuity` writes cross-book checks under `continuity/`, including missing linked runs, series metadata mismatches, open threads, and manuscript word counts.
 
 ### `/book-genesis export`
 
@@ -751,6 +785,7 @@ Troubleshooting:
 - Optional approval checkpoints let authors review research, foundation, or draft milestones before the next phase launches.
 - Reviewer feedback can reopen a paused or completed run, save the notes under `evaluations/reviewer-feedback/`, and route the project back through `revise -> evaluate -> deliver`.
 - Companion short-story tools create website-ready lead magnets under `promotion/short-story-package/` without replacing the main manuscript workflow.
+- Series tools coordinate multiple normal book runs with shared planning, publishing metadata, next-book briefs, and cross-book continuity reports under `book-series/`.
 
 ## Reviewer Feedback Loop
 
