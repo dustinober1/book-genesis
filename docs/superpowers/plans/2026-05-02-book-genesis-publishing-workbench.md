@@ -1207,7 +1207,7 @@ git commit -m "docs: document publishing workbench release"
 
 ## Final Verification
 
-- [ ] Run the full test suite:
+- [x] Run the full test suite:
 
 ```bash
 npm test
@@ -1215,7 +1215,7 @@ npm test
 
 Expected: PASS.
 
-- [ ] Run typecheck:
+- [x] Run typecheck:
 
 ```bash
 npm run typecheck
@@ -1223,7 +1223,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] Run package install verification:
+- [x] Run package install verification:
 
 ```bash
 pi install .
@@ -1232,7 +1232,7 @@ pi list
 
 Expected: `book-genesis` appears in the installed package list and Pi starts without dependency errors.
 
-- [ ] Inspect git status:
+- [x] Inspect git status:
 
 ```bash
 git status --short --branch
