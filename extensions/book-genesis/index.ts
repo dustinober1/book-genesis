@@ -55,6 +55,7 @@ import { approveRevisionPlan, createRevisionPlan, rejectRevisionPlan } from "./r
 import { writePacingDashboard, writeSceneMap } from "./scenes.js";
 import { buildRunStats, formatRunStats } from "./stats.js";
 import { addSourceToLedger, writeSourcePack } from "./source-pack.js";
+import { addVaultSource, linkClaimToSources, writeSourceVault } from "./source-vault.js";
 import { writeStyleLint, writeStyleProfile } from "./style.js";
 import { writeSourceAudit } from "./source-audit.js";
 import { chooseVariant, generateVariants } from "./variants.js";
@@ -431,7 +432,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
     getArgumentCompletions: (prefix: string) => {
       const parts = prefix.trim().split(/\s+/);
       if (parts.length <= 1) {
-        return ["run", "resume", "status", "next", "dashboard", "map", "doctor-run", "stop", "approve", "reject", "feedback", "feedback-plan", "approve-revision-plan", "reject-revision-plan", "list-runs", "export", "kdp", "audit", "final-check", "doctor", "open", "stats", "init-config", "metadata-lab", "style-profile", "style-lint", "scene-map", "pacing", "critique-panel", "source-audit", "source", "source-pack", "revision-history", "bible-check", "beta-packet", "variants", "choose-variant", "launch-kit", "book-matter", "cover-check", "archive", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
+        return ["run", "resume", "status", "next", "dashboard", "map", "doctor-run", "stop", "approve", "reject", "feedback", "feedback-plan", "approve-revision-plan", "reject-revision-plan", "list-runs", "export", "kdp", "audit", "final-check", "doctor", "open", "stats", "init-config", "metadata-lab", "style-profile", "style-lint", "scene-map", "pacing", "critique-panel", "source-audit", "source", "source-pack", "source-vault", "revision-history", "bible-check", "beta-packet", "variants", "choose-variant", "launch-kit", "book-matter", "cover-check", "archive", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
           .filter((item) => item.startsWith(parts[0] ?? ""))
           .map((item) => ({ value: item, label: item }));
       }
@@ -894,6 +895,62 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           }
           addSourceToLedger(readRunState(parsed.runDir), { title, summary, url });
           sendStatus(pi, `Source recorded: ${title}`);
+          return;
+        }
+
+        case "source-vault": {
+          const action = parseSubcommand(rest);
+          if (action.subcommand === "add") {
+            const parsed = parseOptionalRunDirAndRest(action.rest, ctx);
+            if (!parsed.runDir) {
+              ctx.ui.notify("No run directory provided and no active run found.", "error");
+              return;
+            }
+            const titleArg = consumeFirstArg(parsed.rest);
+            const urlArg = consumeFirstArg(titleArg.rest);
+            const summaryArg = consumeFirstArg(urlArg.rest);
+            if (!titleArg.first || !summaryArg.first) {
+              ctx.ui.notify("Usage: /book-genesis source-vault add [run-dir] <title> <url> <summary>", "error");
+              return;
+            }
+            const source = addVaultSource(readRunState(parsed.runDir), {
+              title: titleArg.first,
+              url: urlArg.first,
+              summary: summaryArg.first,
+              confidence: "medium",
+            });
+            sendStatus(pi, `Source vault entry recorded: ${source.id}`);
+            return;
+          }
+
+          if (action.subcommand === "claim") {
+            const parsed = parseOptionalRunDirAndRest(action.rest, ctx);
+            if (!parsed.runDir) {
+              ctx.ui.notify("No run directory provided and no active run found.", "error");
+              return;
+            }
+            const claimArg = consumeFirstArg(parsed.rest);
+            const sourceArg = consumeFirstArg(claimArg.rest);
+            if (!claimArg.first || !sourceArg.first) {
+              ctx.ui.notify("Usage: /book-genesis source-vault claim [run-dir] <claim> <source-id[,source-id]>", "error");
+              return;
+            }
+            const claim = linkClaimToSources(readRunState(parsed.runDir), {
+              claim: claimArg.first,
+              sourceIds: sourceArg.first.split(",").map((entry) => entry.trim()).filter(Boolean),
+              confidence: "medium",
+            });
+            sendStatus(pi, `Source vault claim linked: ${claim.claimId}`);
+            return;
+          }
+
+          const runDir = resolveRunDir(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const result = writeSourceVault(readRunState(runDir));
+          sendStatus(pi, `Source vault written.\n${result.markdownPath}\n${result.jsonPath}`);
           return;
         }
 

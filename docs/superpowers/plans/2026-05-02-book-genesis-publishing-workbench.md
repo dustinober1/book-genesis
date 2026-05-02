@@ -457,7 +457,7 @@ git commit -m "feat: add marketplace metadata lab"
 - Create: `tests/source-vault.test.ts`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write source vault tests**
+- [x] **Step 1: Write source vault tests**
 
 Create `tests/source-vault.test.ts`:
 
@@ -507,7 +507,7 @@ test("source vault writes durable artifacts", async () => {
 });
 ```
 
-- [ ] **Step 2: Run source vault tests and verify the red state**
+- [x] **Step 2: Run source vault tests and verify the red state**
 
 Run:
 
@@ -517,7 +517,7 @@ node --test --import tsx tests/source-vault.test.ts
 
 Expected: FAIL because `source-vault.ts` does not exist.
 
-- [ ] **Step 3: Implement source vault module**
+- [x] **Step 3: Implement source vault module**
 
 Create `extensions/book-genesis/source-vault.ts` with:
 
@@ -546,7 +546,7 @@ export function sourceVaultReadiness(run: RunState): HealthCheckResult[];
 
 Persist JSON at `research/source-vault.json` and Markdown at `research/source-vault.md`. Generate stable IDs from a slug plus a short hash of source title or claim text.
 
-- [ ] **Step 4: Wire source vault into research and audit**
+- [x] **Step 4: Wire source vault into research and audit**
 
 In `research-web.ts`, add a pure helper:
 
@@ -556,7 +556,7 @@ export function researchResultToVaultSource(result: ResearchSearchResult): AddVa
 
 In `source-audit.ts`, include source-vault claim links when deciding whether nonfiction and memoir claims have coverage.
 
-- [ ] **Step 5: Register source-vault commands**
+- [x] **Step 5: Register source-vault commands**
 
 In `index.ts`, add:
 
@@ -566,7 +566,7 @@ In `index.ts`, add:
 
 The command parser may be simple for this release: quoted strings are enough.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run:
 

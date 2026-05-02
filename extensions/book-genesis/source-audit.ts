@@ -3,6 +3,7 @@ import path from "node:path";
 
 import type { ClaimEntry, HealthCheckResult, RunLedger, RunState, SourceAuditReport } from "./types.js";
 import { listChapterFiles, plainText, readManuscript, writeJson, writeMarkdown } from "./run-files.js";
+import { buildSourceVault } from "./source-vault.js";
 
 function readLedger(run: RunState): RunLedger {
   if (!existsSync(run.ledgerPath)) {
@@ -47,8 +48,16 @@ export function buildSourceAudit(run: RunState): SourceAuditReport {
   const ledger = readLedger(run);
   const claims = detectClaims(run);
   const sourceText = ledger.sources.map((source) => `${source.title} ${source.summary}`).join(" ").toLowerCase();
+  const vault = buildSourceVault(run);
   for (const claim of claims) {
     if (claim.supportLevel === "not-required") continue;
+    const linked = vault.claimLinks.find((entry) => entry.claim.toLowerCase().includes(claim.claim.slice(0, 40).toLowerCase()) || claim.claim.toLowerCase().includes(entry.claim.slice(0, 40).toLowerCase()));
+    if (linked) {
+      claim.supportLevel = linked.confidence === "high" ? "strong" : "partial";
+      claim.sourceTitles = vault.sources.filter((source) => linked.sourceIds.includes(source.id)).map((source) => source.title);
+      claim.risk = linked.confidence === "high" ? "low" : "medium";
+      continue;
+    }
     const terms = claim.claim.toLowerCase().split(/\W+/).filter((term) => term.length > 5).slice(0, 8);
     const hits = terms.filter((term) => sourceText.includes(term)).length;
     if (hits >= 2) {

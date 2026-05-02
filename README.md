@@ -63,6 +63,7 @@ Command arguments that contain spaces should be quoted. Paths can be absolute or
 | `/book-genesis source-audit` | Map nonfiction/memoir claims to source coverage. |
 | `/book-genesis source add` | Add a source to the run ledger. |
 | `/book-genesis source-pack` | Write source-first planning and source-gap artifacts. |
+| `/book-genesis source-vault` | Write durable source, claim-link, and bibliography artifacts. |
 | `/book-genesis bible-check` | Check manuscript drift against the story bible. |
 | `/book-genesis revision-history` | Summarize phase, feedback, quality, and draft-change history. |
 | `/book-genesis variants` | Generate optional planning variants before outline lock-in. |
@@ -426,8 +427,13 @@ These commands write reports under `evaluations/` or `foundation/` without advan
 - `/book-genesis pacing [run-dir] [--json]`
 - `/book-genesis critique-panel [run-dir] [--json]`
 - `/book-genesis source-audit [run-dir] [--json]`
+- `/book-genesis source-vault [run-dir]`
+- `/book-genesis source-vault add [run-dir] "<title>" "<url>" "<summary>"`
+- `/book-genesis source-vault claim [run-dir] "<claim>" "<source-id[,source-id]>"`
 
 Use them after drafting and before a serious evaluate/revise cycle. `source-audit` is required by default for memoir, prescriptive nonfiction, and narrative nonfiction, and optional for fiction.
+
+`source-vault` writes `research/source-vault.json` and `research/source-vault.md`, capturing durable source entries, claim-to-source links, confidence, and a bibliography draft for nonfiction and memoir review.
 
 ### Planning Variants
 

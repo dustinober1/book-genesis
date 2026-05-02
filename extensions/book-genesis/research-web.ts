@@ -1,4 +1,5 @@
 import type { RunState } from "./types.js";
+import type { AddVaultSourceInput } from "./source-vault.js";
 
 export interface ResearchSearchResult {
   title: string;
@@ -131,4 +132,13 @@ export function formatSearchResults(results: ResearchSearchResult[]) {
   return results.length
     ? results.map((result, index) => `${index + 1}. ${result.title}\n${result.url}\n${result.snippet}`).join("\n\n")
     : "No search results returned. Try a narrower query with genre, audience, or comparable title terms.";
+}
+
+export function researchResultToVaultSource(result: ResearchSearchResult): AddVaultSourceInput {
+  return {
+    title: result.title,
+    url: result.url,
+    summary: result.snippet,
+    confidence: "medium",
+  };
 }
