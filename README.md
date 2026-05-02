@@ -41,6 +41,7 @@ Command arguments that contain spaces should be quoted. Paths can be absolute or
 | `/book-genesis status` | Show run state, phase, approval, feedback, and next action. |
 | `/book-genesis next` | Recommend the single next operator command. |
 | `/book-genesis dashboard` | Write a run dashboard with readiness and next action. |
+| `/book-genesis workbench` | Write a richer operator console with blockers, artifacts, and readiness. |
 | `/book-genesis map` | Write a Mermaid project map for the run. |
 | `/book-genesis doctor` | Check package, workspace, config, dependencies, and nearby extension health. |
 | `/book-genesis doctor-run` | Diagnose one run's state, artifacts, sources, and final readiness. |
@@ -482,10 +483,11 @@ Use these commands when returning to a run or deciding what to do next:
 
 - `/book-genesis next [run-dir] [--json]`
 - `/book-genesis dashboard [run-dir] [--json]`
+- `/book-genesis workbench [run-dir] [--json]`
 - `/book-genesis map [run-dir]`
 - `/book-genesis doctor-run [run-dir] [--json]`
 
-`next` prints the single recommended operator command. `dashboard` writes `dashboard/run-dashboard.md` and `.json`. `map` writes `dashboard/project-map.md` with a Mermaid phase graph. `doctor-run` diagnoses one run's state, artifacts, source-pack status, and final-check blockers.
+`next` prints the single recommended operator command. `dashboard` writes `dashboard/run-dashboard.md` and `.json`. `workbench` writes `dashboard/workbench.md` and `.json` with blocker rows, artifact links, recent phase history, and readiness across final-check, metadata, revision, source, layout, launch, and archive surfaces. `map` writes `dashboard/project-map.md` with a Mermaid phase graph. `doctor-run` diagnoses one run's state, artifacts, source-pack status, and final-check blockers.
 
 ### `/book-genesis audit`
 

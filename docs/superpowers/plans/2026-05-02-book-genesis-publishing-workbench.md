@@ -851,7 +851,7 @@ git commit -m "feat: add interior layout profiles"
 - Modify: `tests/all-10-upgrades.test.ts`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write workbench tests**
+- [x] **Step 1: Write workbench tests**
 
 Create `tests/workbench.test.ts`:
 
@@ -889,7 +889,7 @@ test("workbench writes console artifacts", async () => {
 });
 ```
 
-- [ ] **Step 2: Run workbench tests and verify the red state**
+- [x] **Step 2: Run workbench tests and verify the red state**
 
 Run:
 
@@ -899,7 +899,7 @@ node --test --import tsx tests/workbench.test.ts
 
 Expected: FAIL because `workbench.ts` does not exist.
 
-- [ ] **Step 3: Implement workbench module**
+- [x] **Step 3: Implement workbench module**
 
 Create `extensions/book-genesis/workbench.ts` with:
 
@@ -928,17 +928,17 @@ Write:
 - `dashboard/workbench.json`
 - `dashboard/workbench.md`
 
-- [ ] **Step 4: Route dashboard and doctor to workbench output**
+- [x] **Step 4: Route dashboard and doctor to workbench output**
 
 In `dashboard.ts`, add workbench path fields when files exist.
 
 In `doctor-run.ts`, add an info result if `dashboard/workbench.json` is missing with remedy `Run /book-genesis workbench.`
 
-- [ ] **Step 5: Register command**
+- [x] **Step 5: Register command**
 
 In `index.ts`, register `/book-genesis workbench [run-dir]`.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run:
 

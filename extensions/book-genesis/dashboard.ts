@@ -1,4 +1,5 @@
 import path from "node:path";
+import { existsSync } from "node:fs";
 
 import { buildFinalCheck } from "./final-check.js";
 import { buildRunStats } from "./stats.js";
@@ -53,6 +54,11 @@ export function buildRunDashboard(run: RunState) {
       finalCheckErrors: finalCheck.results.filter((item) => item.severity === "error").length,
       finalCheckWarnings: finalCheck.results.filter((item) => item.severity === "warning").length,
     },
+    workbench: {
+      jsonPath: path.join(run.rootDir, "dashboard", "workbench.json"),
+      markdownPath: path.join(run.rootDir, "dashboard", "workbench.md"),
+      present: existsSync(path.join(run.rootDir, "dashboard", "workbench.json")),
+    },
   };
 }
 
@@ -67,6 +73,7 @@ export function formatRunDashboard(dashboard: ReturnType<typeof buildRunDashboar
     `- Latest quality gate: ${dashboard.stats.latestQualityGateStatus}`,
     `- Final-check errors: ${dashboard.readiness.finalCheckErrors}`,
     `- Final-check warnings: ${dashboard.readiness.finalCheckWarnings}`,
+    `- Workbench: ${dashboard.workbench.present ? dashboard.workbench.markdownPath : "not generated"}`,
     "",
     "## Recommended Next Action",
     "",

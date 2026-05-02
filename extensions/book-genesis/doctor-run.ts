@@ -41,10 +41,14 @@ export function buildRunDoctorReport(run: RunState) {
 
   const staleTargets = [
     path.join(run.rootDir, "dashboard", "run-dashboard.json"),
+    path.join(run.rootDir, "dashboard", "workbench.json"),
     path.join(run.rootDir, "delivery", "final-check.json"),
   ].filter((target) => !existsSync(target));
   for (const target of staleTargets) {
-    results.push(result(false, "info", "report_missing", `Report has not been generated yet: ${target}`, "Run /book-genesis dashboard or /book-genesis final-check."));
+    const command = target.endsWith("workbench.json")
+      ? "Run /book-genesis workbench."
+      : "Run /book-genesis dashboard or /book-genesis final-check.";
+    results.push(result(false, "info", "report_missing", `Report has not been generated yet: ${target}`, command));
   }
 
   return {
