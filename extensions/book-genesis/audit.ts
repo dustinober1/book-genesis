@@ -10,6 +10,7 @@ import { lintStyle } from "./style.js";
 import { buildSourceAudit } from "./source-audit.js";
 import { buildCritiquePanel } from "./critique.js";
 import { launchKitReady } from "./launch.js";
+import { revisionBoardReadiness } from "./revision-board.js";
 
 function promotionReadiness(run: RunState) {
   const results: HealthCheckResult[] = [];
@@ -58,6 +59,7 @@ export function buildAuditReport(run: RunState) {
   const pacing = buildPacingDashboard(run);
   const critique = buildCritiquePanel(run);
   const sourceAudit = buildSourceAudit(run);
+  const revisionBoard = { ok: revisionBoardReadiness(run).every((item) => item.severity !== "error"), results: revisionBoardReadiness(run) };
   const publishing = buildPublishingReadiness(run);
   const promotion = promotionReadiness(run);
   const coverCheckPath = path.join(run.rootDir, "delivery", "kdp", "cover-check.json");
@@ -78,6 +80,7 @@ export function buildAuditReport(run: RunState) {
     ...style.findings.filter((item) => item.severity !== "info").slice(0, 3).map((finding) => `${finding.target}: ${finding.suggestedAction}`),
     ...pacing.findings.filter((item) => item.severity !== "info").slice(0, 3).map((finding) => `${finding.target}: ${finding.suggestedAction}`),
     ...sourceAudit.findings.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
+    ...revisionBoard.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
     ...publishing.results.filter((item) => item.severity !== "info").slice(0, 3).map((item) => item.remedy ?? item.message),
     ...promotion.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
     ...coverCheck.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
@@ -96,6 +99,7 @@ export function buildAuditReport(run: RunState) {
     pacing,
     critique,
     sourceAudit,
+    revisionBoard,
     publishing,
     promotion,
     coverCheck,
@@ -113,6 +117,7 @@ export function formatAuditReport(report: ReturnType<typeof buildAuditReport>) {
   const styleLines = report.style.findings.length ? report.style.findings.slice(0, 8).map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.evidence}`).join("\n") : "- none";
   const pacingLines = report.pacing.findings.length ? report.pacing.findings.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.evidence}`).join("\n") : "- none";
   const sourceLines = report.sourceAudit.findings.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.message}`).join("\n");
+  const revisionBoardLines = report.revisionBoard.results.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.message}`).join("\n");
   const critiqueLines = [
     `- Reviewers: ${report.critique.reviewers.length}`,
     `- Mean disagreement: ${report.critique.disagreement.meanAbsDelta ?? "n/a"}`,
@@ -145,6 +150,9 @@ export function formatAuditReport(report: ReturnType<typeof buildAuditReport>) {
     "",
     "## Source audit",
     sourceLines,
+    "",
+    "## Revision board",
+    revisionBoardLines,
     "",
     "## Publishing readiness",
     formatPublishingReadiness(report.publishing).replace(/^# Publishing Readiness\n\n/, ""),

@@ -595,7 +595,7 @@ git commit -m "feat: add source vault"
 - Create: `tests/revision-board.test.ts`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write revision board tests**
+- [x] **Step 1: Write revision board tests**
 
 Create `tests/revision-board.test.ts`:
 
@@ -632,7 +632,7 @@ test("revision board writes markdown and json", async () => {
 });
 ```
 
-- [ ] **Step 2: Run revision board tests and verify the red state**
+- [x] **Step 2: Run revision board tests and verify the red state**
 
 Run:
 
@@ -642,7 +642,7 @@ node --test --import tsx tests/revision-board.test.ts
 
 Expected: FAIL because `revision-board.ts` does not exist.
 
-- [ ] **Step 3: Implement revision board module**
+- [x] **Step 3: Implement revision board module**
 
 Create `extensions/book-genesis/revision-board.ts` with:
 
@@ -683,7 +683,7 @@ Each task must include:
 - `status`
 - At least one acceptance criterion
 
-- [ ] **Step 4: Add command and audit visibility**
+- [x] **Step 4: Add command and audit visibility**
 
 In `index.ts`, register `/book-genesis revision-board [run-dir]`.
 
@@ -692,7 +692,7 @@ In `audit.ts`, include a `revisionBoard` section with readiness:
 - present if `revisions/revision-board.json` exists
 - warning if missing after `evaluate`, `revise`, or `deliver`
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run:
 
