@@ -49,6 +49,7 @@ import { writeManuscriptIntelligenceReport } from "./intelligence.js";
 import { writeKdpPackage } from "./kdp.js";
 import { writeLaunchKit } from "./launch.js";
 import { recordDecision, recordSource } from "./ledger.js";
+import { writeMetadataLab } from "./metadata-lab.js";
 import { buildShortStoryBrainstorm, writeShortStoryPackage } from "./promotion.js";
 import { approveRevisionPlan, createRevisionPlan, rejectRevisionPlan } from "./revision-plan.js";
 import { writePacingDashboard, writeSceneMap } from "./scenes.js";
@@ -430,7 +431,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
     getArgumentCompletions: (prefix: string) => {
       const parts = prefix.trim().split(/\s+/);
       if (parts.length <= 1) {
-        return ["run", "resume", "status", "next", "dashboard", "map", "doctor-run", "stop", "approve", "reject", "feedback", "feedback-plan", "approve-revision-plan", "reject-revision-plan", "list-runs", "export", "kdp", "audit", "final-check", "doctor", "open", "stats", "init-config", "style-profile", "style-lint", "scene-map", "pacing", "critique-panel", "source-audit", "source", "source-pack", "revision-history", "bible-check", "beta-packet", "variants", "choose-variant", "launch-kit", "book-matter", "cover-check", "archive", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
+        return ["run", "resume", "status", "next", "dashboard", "map", "doctor-run", "stop", "approve", "reject", "feedback", "feedback-plan", "approve-revision-plan", "reject-revision-plan", "list-runs", "export", "kdp", "audit", "final-check", "doctor", "open", "stats", "init-config", "metadata-lab", "style-profile", "style-lint", "scene-map", "pacing", "critique-panel", "source-audit", "source", "source-pack", "revision-history", "bible-check", "beta-packet", "variants", "choose-variant", "launch-kit", "book-matter", "cover-check", "archive", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
           .filter((item) => item.startsWith(parts[0] ?? ""))
           .map((item) => ({ value: item, label: item }));
       }
@@ -820,6 +821,18 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           const result = writeFinalCheck(readRunState(runDir));
           writeRunDashboard(readRunState(runDir));
           sendStatus(pi, parsed.json ? JSON.stringify(result.report, null, 2) : formatFinalCheck(result.report));
+          return;
+        }
+
+        case "metadata-lab": {
+          const runDir = resolveRunDir(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const result = writeMetadataLab(readRunState(runDir));
+          writeRunDashboard(readRunState(runDir));
+          sendStatus(pi, `Metadata lab written.\n- Markdown: ${result.markdownPath}\n- Scorecard: ${result.jsonPath}`);
           return;
         }
 

@@ -54,6 +54,7 @@ Command arguments that contain spaces should be quoted. Paths can be absolute or
 | `/book-genesis reject-revision-plan` | Reject the pending revision plan and stop the run. |
 | `/book-genesis open` | Print key run paths for the active or explicit run. |
 | `/book-genesis stats` | Show run, manuscript, quality, style, source, KDP, and launch stats. |
+| `/book-genesis metadata-lab` | Generate scored marketplace metadata options for subtitle, description, keywords, and categories. |
 | `/book-genesis style-profile` | Build author voice/style profile artifacts. |
 | `/book-genesis style-lint` | Write deterministic style lint reports. |
 | `/book-genesis scene-map` | Write a chapter/scene map. |
@@ -441,10 +442,13 @@ The selected variant is written to `foundation/selected-variant.md` and used by 
 
 Publishing and launch-prep commands:
 
+- `/book-genesis metadata-lab [run-dir]`
 - `/book-genesis launch-kit [run-dir] [--json]`
 - `/book-genesis book-matter [run-dir]`
 - `/book-genesis cover-check [run-dir] <cover-path> [--target ebook|paperback] [--json]`
 - `/book-genesis archive [run-dir] [--manifest-only]`
+
+`metadata-lab` writes scored subtitle, description, keyword-chain, and category candidates under `delivery/metadata-lab/`, including `metadata-scorecard.json`, `metadata-lab.md`, `subtitles.md`, `descriptions.md`, `keyword-chains.md`, and `categories.md`.
 
 `launch-kit` writes the newsletter sequence, ARC invite, book club questions, press kit, author Q&A, retailer description variants, social calendar, homepage copy, and manifest under `promotion/launch-kit/`.
 

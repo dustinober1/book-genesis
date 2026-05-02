@@ -316,7 +316,7 @@ git commit -m "feat: add publishing workbench config"
 - Create: `tests/metadata-lab.test.ts`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write metadata lab tests**
+- [x] **Step 1: Write metadata lab tests**
 
 Create `tests/metadata-lab.test.ts`:
 
@@ -363,7 +363,7 @@ test("metadata lab writes markdown and json artifacts", async () => {
 });
 ```
 
-- [ ] **Step 2: Run the metadata tests and verify the red state**
+- [x] **Step 2: Run the metadata tests and verify the red state**
 
 Run:
 
@@ -373,7 +373,7 @@ node --test --import tsx tests/metadata-lab.test.ts
 
 Expected: FAIL because `metadata-lab.ts` does not exist.
 
-- [ ] **Step 3: Implement metadata lab module**
+- [x] **Step 3: Implement metadata lab module**
 
 Create `extensions/book-genesis/metadata-lab.ts` with these exported functions:
 
@@ -407,7 +407,7 @@ Scoring rules:
 - `differentiation`: 0-20 based on avoiding duplicate phrasing across options.
 - `compliance`: 0-10 based on no unverifiable bestseller claims, no price claims, and description under 4000 characters.
 
-- [ ] **Step 4: Register `/book-genesis metadata-lab`**
+- [x] **Step 4: Register `/book-genesis metadata-lab`**
 
 In `extensions/book-genesis/index.ts`:
 
@@ -423,11 +423,11 @@ Metadata lab written.
 - Scorecard: <path>
 ```
 
-- [ ] **Step 5: Document the command**
+- [x] **Step 5: Document the command**
 
 In `README.md`, add `/book-genesis metadata-lab` to the quick reference and add a short section listing the generated files.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run:
 
