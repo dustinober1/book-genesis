@@ -9,8 +9,11 @@ import { buildPacingDashboard } from "./scenes.js";
 import { lintStyle } from "./style.js";
 import { buildSourceAudit } from "./source-audit.js";
 import { buildCritiquePanel } from "./critique.js";
+import { layoutProfileReadiness } from "./layout-profiles.js";
 import { launchKitReady } from "./launch.js";
+import { metadataLabReady } from "./metadata-lab.js";
 import { revisionBoardReadiness } from "./revision-board.js";
+import { sourceVaultReadiness } from "./source-vault.js";
 
 function promotionReadiness(run: RunState) {
   const results: HealthCheckResult[] = [];
@@ -59,7 +62,14 @@ export function buildAuditReport(run: RunState) {
   const pacing = buildPacingDashboard(run);
   const critique = buildCritiquePanel(run);
   const sourceAudit = buildSourceAudit(run);
-  const revisionBoard = { ok: revisionBoardReadiness(run).every((item) => item.severity !== "error"), results: revisionBoardReadiness(run) };
+  const metadataLabResults = metadataLabReady(run);
+  const revisionBoardResults = revisionBoardReadiness(run);
+  const sourceVaultResults = sourceVaultReadiness(run);
+  const layoutProfileResults = layoutProfileReadiness(run);
+  const metadataLab = { ok: metadataLabResults.every((item) => item.severity !== "error"), results: metadataLabResults };
+  const revisionBoard = { ok: revisionBoardResults.every((item) => item.severity !== "error"), results: revisionBoardResults };
+  const sourceVault = { ok: sourceVaultResults.every((item) => item.severity !== "error"), results: sourceVaultResults };
+  const layoutProfile = { ok: layoutProfileResults.every((item) => item.severity !== "error"), results: layoutProfileResults };
   const publishing = buildPublishingReadiness(run);
   const promotion = promotionReadiness(run);
   const coverCheckPath = path.join(run.rootDir, "delivery", "kdp", "cover-check.json");
@@ -80,7 +90,10 @@ export function buildAuditReport(run: RunState) {
     ...style.findings.filter((item) => item.severity !== "info").slice(0, 3).map((finding) => `${finding.target}: ${finding.suggestedAction}`),
     ...pacing.findings.filter((item) => item.severity !== "info").slice(0, 3).map((finding) => `${finding.target}: ${finding.suggestedAction}`),
     ...sourceAudit.findings.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
+    ...metadataLab.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
     ...revisionBoard.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
+    ...sourceVault.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
+    ...layoutProfile.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
     ...publishing.results.filter((item) => item.severity !== "info").slice(0, 3).map((item) => item.remedy ?? item.message),
     ...promotion.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
     ...coverCheck.results.filter((item) => item.severity !== "info").map((item) => item.remedy ?? item.message),
@@ -99,7 +112,10 @@ export function buildAuditReport(run: RunState) {
     pacing,
     critique,
     sourceAudit,
+    metadataLab,
     revisionBoard,
+    sourceVault,
+    layoutProfile,
     publishing,
     promotion,
     coverCheck,
@@ -117,7 +133,10 @@ export function formatAuditReport(report: ReturnType<typeof buildAuditReport>) {
   const styleLines = report.style.findings.length ? report.style.findings.slice(0, 8).map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.evidence}`).join("\n") : "- none";
   const pacingLines = report.pacing.findings.length ? report.pacing.findings.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.evidence}`).join("\n") : "- none";
   const sourceLines = report.sourceAudit.findings.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.message}`).join("\n");
+  const metadataLabLines = report.metadataLab.results.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.message}`).join("\n");
   const revisionBoardLines = report.revisionBoard.results.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.message}`).join("\n");
+  const sourceVaultLines = report.sourceVault.results.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.message}`).join("\n");
+  const layoutProfileLines = report.layoutProfile.results.map((item) => `- [${item.severity.toUpperCase()}] ${item.code}: ${item.message}`).join("\n");
   const critiqueLines = [
     `- Reviewers: ${report.critique.reviewers.length}`,
     `- Mean disagreement: ${report.critique.disagreement.meanAbsDelta ?? "n/a"}`,
@@ -151,8 +170,17 @@ export function formatAuditReport(report: ReturnType<typeof buildAuditReport>) {
     "## Source audit",
     sourceLines,
     "",
+    "## Metadata lab",
+    metadataLabLines,
+    "",
     "## Revision board",
     revisionBoardLines,
+    "",
+    "## Source vault",
+    sourceVaultLines,
+    "",
+    "## Layout profile",
+    layoutProfileLines,
     "",
     "## Publishing readiness",
     formatPublishingReadiness(report.publishing).replace(/^# Publishing Readiness\n\n/, ""),

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -6,6 +6,8 @@ import assert from "node:assert/strict";
 
 import { DEFAULT_RUN_CONFIG } from "../extensions/book-genesis/config.js";
 import { writeKdpPackage } from "../extensions/book-genesis/kdp.js";
+import { writeLayoutProfileReport } from "../extensions/book-genesis/layout-profiles.js";
+import { writeMetadataLab } from "../extensions/book-genesis/metadata-lab.js";
 import { createRunState } from "../extensions/book-genesis/state.js";
 
 async function withRun(fn: (run: ReturnType<typeof createRunState>) => Promise<void>) {
@@ -87,5 +89,21 @@ test("writeKdpPackage reports key preflight warnings", async () => {
     assert.equal(issueCodes.includes("missing_trim_size"), true);
     assert.equal(issueCodes.includes("spine_text_check"), true);
     assert.equal(issueCodes.includes("generated_cover_brief"), true);
+  });
+});
+
+test("kdp package includes metadata lab and layout profile artifacts", async () => {
+  await withRun(async (run) => {
+    run.config.kdp.authorName = "D. Ober";
+    run.config.kdp.description = "A commercial near-future thriller about memory theft.";
+    run.config.kdp.keywords = ["memory theft thriller"];
+    run.config.kdp.categories = ["Fiction / Thrillers / Technological"];
+    writeMetadataLab(run);
+    writeLayoutProfileReport(run);
+
+    const manifest = await writeKdpPackage(run);
+    assert.equal(existsSync(path.join(run.rootDir, "delivery", "kdp", "metadata-lab.md")), true);
+    assert.equal(existsSync(path.join(run.rootDir, "delivery", "kdp", "layout-profile.md")), true);
+    assert.equal(manifest.files.some((file) => file.endsWith("metadata-lab.md")), true);
   });
 });

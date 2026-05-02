@@ -22,6 +22,10 @@ export function buildFinalCheck(run: RunState) {
   results.push(...audit.coverCheck.results);
   results.push(...audit.launchKit.results);
   results.push(...audit.archive.results);
+  results.push(...audit.metadataLab.results);
+  results.push(...audit.revisionBoard.results.filter((item) => item.severity !== "info"));
+  results.push(...audit.sourceVault.results);
+  results.push(...audit.layoutProfile.results.filter((item) => item.severity !== "info"));
   results.push(...audit.style.findings.filter((finding) => finding.severity !== "info").map((finding) =>
     result(false, finding.severity, `style_${finding.code}`, `${finding.target}: ${finding.evidence}`, finding.suggestedAction)));
   results.push(...audit.pacing.findings.filter((finding) => finding.severity !== "info").map((finding) =>

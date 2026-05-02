@@ -60,3 +60,17 @@ test("writePublishingReadinessReport writes delivery readiness markdown", () => 
     assert.match(text, /kdp_author_missing/);
   });
 });
+
+test("audit reports new publishing workbench readiness", () => {
+  withRun((run) => {
+    mkdirSync(path.join(run.rootDir, "manuscript"), { recursive: true });
+    writeFileSync(path.join(run.rootDir, "manuscript", "full-manuscript.md"), "# Manuscript\n\nA complete sample.\n");
+
+    const report = buildAuditReport(run);
+
+    assert.equal(Boolean(report.metadataLab), true);
+    assert.equal(Boolean(report.revisionBoard), true);
+    assert.equal(Boolean(report.sourceVault), true);
+    assert.equal(Boolean(report.layoutProfile), true);
+  });
+});

@@ -619,6 +619,20 @@ export async function writeKdpPackage(run: RunState): Promise<KdpPackageManifest
   copyFileSync(layoutProfile.markdownPath, copiedLayoutMarkdownPath);
   copiedAssets.push(copiedLayoutJsonPath, copiedLayoutMarkdownPath);
 
+  const metadataLabMarkdownPath = path.join(run.rootDir, "delivery", "metadata-lab", "metadata-lab.md");
+  if (existsSync(metadataLabMarkdownPath)) {
+    const copiedMetadataLabPath = path.join(kdpDir, "metadata-lab.md");
+    copyFileSync(metadataLabMarkdownPath, copiedMetadataLabPath);
+    copiedAssets.push(copiedMetadataLabPath);
+  }
+
+  const metadataScorecardPath = path.join(run.rootDir, "delivery", "metadata-lab", "metadata-scorecard.json");
+  if (existsSync(metadataScorecardPath)) {
+    const copiedScorecardPath = path.join(kdpDir, "metadata-scorecard.json");
+    copyFileSync(metadataScorecardPath, copiedScorecardPath);
+    copiedAssets.push(copiedScorecardPath);
+  }
+
   const description = buildDescription(run);
   const keywords = unique(run.config.kdp.keywords);
   const categories = unique(run.config.kdp.categories);

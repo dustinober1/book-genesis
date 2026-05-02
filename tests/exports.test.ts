@@ -39,6 +39,7 @@ test("writeExportPackage records configured formats in the manifest", async () =
     const manifest = await writeExportPackage(run);
     assert.equal(manifest.formats.includes("docx"), true);
     assert.equal(manifest.files.some((file) => file.endsWith(".docx")), true);
+    assert.equal(manifest.layoutProfile?.id, "fiction-paperback-6x9");
   });
 });
 

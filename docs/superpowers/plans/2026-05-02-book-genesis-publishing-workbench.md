@@ -969,7 +969,7 @@ git commit -m "feat: add operator workbench"
 - Modify: `tests/kdp.test.ts`
 - Modify: `tests/exports.test.ts`
 
-- [ ] **Step 1: Add integration tests**
+- [x] **Step 1: Add integration tests**
 
 Extend `tests/audit.test.ts` with:
 
@@ -1012,7 +1012,7 @@ test("kdp package includes metadata lab and layout profile artifacts", async () 
 });
 ```
 
-- [ ] **Step 2: Run integration tests and verify failures**
+- [x] **Step 2: Run integration tests and verify failures**
 
 Run:
 
@@ -1022,7 +1022,7 @@ node --test --import tsx tests/audit.test.ts tests/kdp.test.ts tests/exports.tes
 
 Expected: FAIL until readiness and package copying are wired.
 
-- [ ] **Step 3: Wire audit report sections**
+- [x] **Step 3: Wire audit report sections**
 
 In `audit.ts`, import readiness helpers and add sections:
 
@@ -1033,7 +1033,7 @@ In `audit.ts`, import readiness helpers and add sections:
 
 Add each non-info result to `nextActions`.
 
-- [ ] **Step 4: Wire final-check gates**
+- [x] **Step 4: Wire final-check gates**
 
 In `final-check.ts`, add:
 
@@ -1042,7 +1042,7 @@ In `final-check.ts`, add:
 - warning when revision board is missing after evaluate/revise/deliver
 - warning when paperback target has no layout profile report
 
-- [ ] **Step 5: Copy artifacts into KDP package**
+- [x] **Step 5: Copy artifacts into KDP package**
 
 In `kdp.ts`, copy:
 
@@ -1053,7 +1053,7 @@ In `kdp.ts`, copy:
 
 Record copied files in the KDP manifest.
 
-- [ ] **Step 6: Include layout profile in export manifest**
+- [x] **Step 6: Include layout profile in export manifest**
 
 In `exports.ts`, add layout profile fields to the manifest:
 
@@ -1066,7 +1066,7 @@ layoutProfile: {
 }
 ```
 
-- [ ] **Step 7: Verify and commit**
+- [x] **Step 7: Verify and commit**
 
 Run:
 
