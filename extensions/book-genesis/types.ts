@@ -19,6 +19,16 @@ export type BookMode =
 
 export type ExportFormat = "md" | "docx" | "epub" | "pdf";
 export type KdpTargetFormat = "ebook" | "paperback";
+export type MetadataVariantKind = "subtitle" | "description" | "keyword-chain" | "category";
+export type RevisionPriority = "low" | "medium" | "high";
+export type RevisionTaskStatus = "open" | "in_progress" | "done" | "deferred";
+export type SourceConfidence = "low" | "medium" | "high";
+export type LayoutProfileId =
+  | "fiction-paperback-6x9"
+  | "nonfiction-paperback-6x9"
+  | "devotional-paperback-6x9"
+  | "childrens-large-square"
+  | "large-print-6x9";
 
 export interface RubricDimension {
   key: string;
@@ -145,6 +155,11 @@ export interface RunConfig {
   coverCheck: CoverCheckConfig;
   revisionPlan: RevisionPlanConfig;
   archive: ArchiveConfig;
+  metadataLab: MetadataLabConfig;
+  sourceVault: SourceVaultConfig;
+  revisionBoard: RevisionBoardConfig;
+  layoutProfiles: LayoutProfilesConfig;
+  workbench: WorkbenchConfig;
 }
 
 export type VoiceStrictness = "light" | "standard" | "strict";
@@ -212,6 +227,79 @@ export interface ArchiveConfig {
   includeState: boolean;
   includeLedger: boolean;
   includeReports: boolean;
+}
+
+export interface MetadataLabConfig {
+  enabled: boolean;
+  requiredForKdp: boolean;
+  maxSubtitleOptions: number;
+  maxDescriptionOptions: number;
+  maxKeywordChains: number;
+  scoringWeights: {
+    clarity: number;
+    marketFit: number;
+    keywordCoverage: number;
+    differentiation: number;
+    compliance: number;
+  };
+}
+
+export interface SourceVaultConfig {
+  enabled: boolean;
+  requireClaimLinksForNonfiction: boolean;
+  minConfidenceForFinal: SourceConfidence;
+}
+
+export interface RevisionBoardConfig {
+  enabled: boolean;
+  defaultPriority: RevisionPriority;
+  includeInfoFindings: boolean;
+}
+
+export interface LayoutProfilesConfig {
+  enabled: boolean;
+  defaultProfile: LayoutProfileId;
+  requireProfileForPaperback: boolean;
+}
+
+export interface WorkbenchConfig {
+  enabled: boolean;
+  includeRecentHistoryLimit: number;
+  includeArtifactLinks: boolean;
+}
+
+export interface MetadataScore {
+  clarity: number;
+  marketFit: number;
+  keywordCoverage: number;
+  differentiation: number;
+  compliance: number;
+  total: number;
+}
+
+export interface MetadataVariant {
+  kind: MetadataVariantKind;
+  value: string;
+  rationale: string;
+  score: MetadataScore;
+}
+
+export interface ClaimLink {
+  claimId: string;
+  claim: string;
+  sourceIds: string[];
+  confidence: SourceConfidence;
+  location?: string;
+}
+
+export interface RevisionBoardTask {
+  id: string;
+  title: string;
+  source: string;
+  target: string;
+  priority: RevisionPriority;
+  status: RevisionTaskStatus;
+  acceptanceCriteria: string[];
 }
 
 export interface KdpConfig {

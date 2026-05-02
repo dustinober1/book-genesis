@@ -27,6 +27,11 @@ export function makeRun(workspace: string, config: Partial<RunConfig> = {}) {
     coverCheck: { ...DEFAULT_RUN_CONFIG.coverCheck, ...config.coverCheck },
     revisionPlan: { ...DEFAULT_RUN_CONFIG.revisionPlan, ...config.revisionPlan },
     archive: { ...DEFAULT_RUN_CONFIG.archive, ...config.archive },
+    metadataLab: { ...DEFAULT_RUN_CONFIG.metadataLab, ...config.metadataLab },
+    sourceVault: { ...DEFAULT_RUN_CONFIG.sourceVault, ...config.sourceVault },
+    revisionBoard: { ...DEFAULT_RUN_CONFIG.revisionBoard, ...config.revisionBoard },
+    layoutProfiles: { ...DEFAULT_RUN_CONFIG.layoutProfiles, ...config.layoutProfiles },
+    workbench: { ...DEFAULT_RUN_CONFIG.workbench, ...config.workbench },
   });
   writeRunState(run);
   return run;

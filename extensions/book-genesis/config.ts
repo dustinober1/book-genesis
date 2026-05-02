@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import type { BookMode, KdpConfig, RunConfig, SeriesConfig } from "./types.js";
+import type { BookMode, KdpConfig, LayoutProfileId, RevisionPriority, RunConfig, SeriesConfig, SourceConfidence } from "./types.js";
 
 export const DEFAULT_RUN_CONFIG: RunConfig = {
   maxRetriesPerPhase: 1,
@@ -78,6 +78,40 @@ export const DEFAULT_RUN_CONFIG: RunConfig = {
     includeLedger: true,
     includeReports: true,
   },
+  metadataLab: {
+    enabled: true,
+    requiredForKdp: true,
+    maxSubtitleOptions: 7,
+    maxDescriptionOptions: 4,
+    maxKeywordChains: 7,
+    scoringWeights: {
+      clarity: 25,
+      marketFit: 25,
+      keywordCoverage: 20,
+      differentiation: 20,
+      compliance: 10,
+    },
+  },
+  sourceVault: {
+    enabled: true,
+    requireClaimLinksForNonfiction: true,
+    minConfidenceForFinal: "medium",
+  },
+  revisionBoard: {
+    enabled: true,
+    defaultPriority: "medium",
+    includeInfoFindings: false,
+  },
+  layoutProfiles: {
+    enabled: true,
+    defaultProfile: "fiction-paperback-6x9",
+    requireProfileForPaperback: true,
+  },
+  workbench: {
+    enabled: true,
+    includeRecentHistoryLimit: 8,
+    includeArtifactLinks: true,
+  },
 };
 
 const VALID_BOOK_MODES = new Set<RunConfig["bookMode"]>([
@@ -96,6 +130,15 @@ const VALID_SHORT_STORY_PURPOSES = new Set<RunConfig["promotion"]["shortStoryPur
   "content-series",
 ]);
 const VALID_VOICE_STRICTNESS = new Set<RunConfig["style"]["voiceStrictness"]>(["light", "standard", "strict"]);
+const VALID_SOURCE_CONFIDENCE = new Set<SourceConfidence>(["low", "medium", "high"]);
+const VALID_REVISION_PRIORITIES = new Set<RevisionPriority>(["low", "medium", "high"]);
+const VALID_LAYOUT_PROFILES = new Set<LayoutProfileId>([
+  "fiction-paperback-6x9",
+  "nonfiction-paperback-6x9",
+  "devotional-paperback-6x9",
+  "childrens-large-square",
+  "large-print-6x9",
+]);
 export const VALID_GENRE_PRESETS = [
   "thriller",
   "memoir",
@@ -326,6 +369,65 @@ function normalizeArchiveConfig(value: Partial<RunConfig["archive"]> | undefined
   return config;
 }
 
+function normalizeScoringWeights(value: Partial<RunConfig["metadataLab"]["scoringWeights"]> | undefined): RunConfig["metadataLab"]["scoringWeights"] {
+  const weights = { ...DEFAULT_RUN_CONFIG.metadataLab.scoringWeights, ...value };
+  for (const [key, weight] of Object.entries(weights)) {
+    if (!Number.isFinite(weight) || weight < 0) {
+      throw new Error(`metadataLab.scoringWeights.${key} must be a non-negative number.`);
+    }
+  }
+  return weights;
+}
+
+function normalizeMetadataLabConfig(value: Partial<RunConfig["metadataLab"]> | undefined): RunConfig["metadataLab"] {
+  const config = { ...DEFAULT_RUN_CONFIG.metadataLab, ...value };
+  assertBoolean("metadataLab.enabled", config.enabled);
+  assertBoolean("metadataLab.requiredForKdp", config.requiredForKdp);
+  assertPositiveInteger("metadataLab.maxSubtitleOptions", config.maxSubtitleOptions);
+  assertPositiveInteger("metadataLab.maxDescriptionOptions", config.maxDescriptionOptions);
+  assertPositiveInteger("metadataLab.maxKeywordChains", config.maxKeywordChains);
+  config.scoringWeights = normalizeScoringWeights(value?.scoringWeights);
+  return config;
+}
+
+function normalizeSourceVaultConfig(value: Partial<RunConfig["sourceVault"]> | undefined): RunConfig["sourceVault"] {
+  const config = { ...DEFAULT_RUN_CONFIG.sourceVault, ...value };
+  assertBoolean("sourceVault.enabled", config.enabled);
+  assertBoolean("sourceVault.requireClaimLinksForNonfiction", config.requireClaimLinksForNonfiction);
+  if (!VALID_SOURCE_CONFIDENCE.has(config.minConfidenceForFinal)) {
+    throw new Error("sourceVault.minConfidenceForFinal must be low, medium, or high.");
+  }
+  return config;
+}
+
+function normalizeRevisionBoardConfig(value: Partial<RunConfig["revisionBoard"]> | undefined): RunConfig["revisionBoard"] {
+  const config = { ...DEFAULT_RUN_CONFIG.revisionBoard, ...value };
+  assertBoolean("revisionBoard.enabled", config.enabled);
+  assertBoolean("revisionBoard.includeInfoFindings", config.includeInfoFindings);
+  if (!VALID_REVISION_PRIORITIES.has(config.defaultPriority)) {
+    throw new Error("revisionBoard.defaultPriority must be low, medium, or high.");
+  }
+  return config;
+}
+
+function normalizeLayoutProfilesConfig(value: Partial<RunConfig["layoutProfiles"]> | undefined): RunConfig["layoutProfiles"] {
+  const config = { ...DEFAULT_RUN_CONFIG.layoutProfiles, ...value };
+  assertBoolean("layoutProfiles.enabled", config.enabled);
+  assertBoolean("layoutProfiles.requireProfileForPaperback", config.requireProfileForPaperback);
+  if (!VALID_LAYOUT_PROFILES.has(config.defaultProfile)) {
+    throw new Error("layoutProfiles.defaultProfile must be a supported layout profile.");
+  }
+  return config;
+}
+
+function normalizeWorkbenchConfig(value: Partial<RunConfig["workbench"]> | undefined): RunConfig["workbench"] {
+  const config = { ...DEFAULT_RUN_CONFIG.workbench, ...value };
+  assertBoolean("workbench.enabled", config.enabled);
+  assertBoolean("workbench.includeArtifactLinks", config.includeArtifactLinks);
+  assertPositiveInteger("workbench.includeRecentHistoryLimit", config.includeRecentHistoryLimit);
+  return config;
+}
+
 export function normalizeRunConfig(value: Partial<RunConfig>): RunConfig {
   const config: RunConfig = { ...DEFAULT_RUN_CONFIG, ...value };
 
@@ -415,6 +517,11 @@ export function normalizeRunConfig(value: Partial<RunConfig>): RunConfig {
   config.coverCheck = normalizeCoverCheckConfig(value.coverCheck);
   config.revisionPlan = normalizeRevisionPlanConfig(value.revisionPlan);
   config.archive = normalizeArchiveConfig(value.archive);
+  config.metadataLab = normalizeMetadataLabConfig(value.metadataLab);
+  config.sourceVault = normalizeSourceVaultConfig(value.sourceVault);
+  config.revisionBoard = normalizeRevisionBoardConfig(value.revisionBoard);
+  config.layoutProfiles = normalizeLayoutProfilesConfig(value.layoutProfiles);
+  config.workbench = normalizeWorkbenchConfig(value.workbench);
 
   return config;
 }
