@@ -499,6 +499,12 @@ export interface GitSnapshotResult {
 export interface ExportManifest {
   formats: ExportFormat[];
   files: string[];
+  layoutProfile?: {
+    id: LayoutProfileId;
+    label: string;
+    trimSize: string;
+    pdfMediaBox: { widthPoints: number; heightPoints: number };
+  };
 }
 
 export interface KdpPreflightIssue {

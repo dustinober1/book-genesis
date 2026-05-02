@@ -724,7 +724,7 @@ git commit -m "feat: add revision board"
 - Modify: `tests/kdp.test.ts`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write layout profile tests**
+- [x] **Step 1: Write layout profile tests**
 
 Create `tests/layout-profiles.test.ts`:
 
@@ -756,7 +756,7 @@ test("layout profile report is written into delivery", async () => {
 });
 ```
 
-- [ ] **Step 2: Run layout tests and verify the red state**
+- [x] **Step 2: Run layout tests and verify the red state**
 
 Run:
 
@@ -766,7 +766,7 @@ node --test --import tsx tests/layout-profiles.test.ts
 
 Expected: FAIL because `layout-profiles.ts` does not exist.
 
-- [ ] **Step 3: Implement layout profile module**
+- [x] **Step 3: Implement layout profile module**
 
 Create `extensions/book-genesis/layout-profiles.ts` with:
 
@@ -801,7 +801,7 @@ Profiles:
 - `childrens-large-square`
 - `large-print-6x9`
 
-- [ ] **Step 4: Integrate layout profiles into exports**
+- [x] **Step 4: Integrate layout profiles into exports**
 
 In `exports.ts`:
 
@@ -809,18 +809,18 @@ In `exports.ts`:
 - Include `layoutProfile` in the export manifest.
 - Write `delivery/layout-profile.json` and `delivery/layout-profile.md` during export.
 
-- [ ] **Step 5: Integrate layout profiles into KDP package**
+- [x] **Step 5: Integrate layout profiles into KDP package**
 
 In `kdp.ts`:
 
 - Copy layout profile reports into `delivery/kdp/`.
 - Add a warning if paperback target and `layoutProfiles.requireProfileForPaperback` is true but no profile report exists.
 
-- [ ] **Step 6: Register command**
+- [x] **Step 6: Register command**
 
 In `index.ts`, register `/book-genesis layout-profile [run-dir]`.
 
-- [ ] **Step 7: Verify and commit**
+- [x] **Step 7: Verify and commit**
 
 Run:
 

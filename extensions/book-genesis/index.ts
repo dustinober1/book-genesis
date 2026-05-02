@@ -47,6 +47,7 @@ import { validateKickoffIntake, writeKickoffBrief } from "./intake.js";
 import { compareDrafts, requestChapterRevision, requestWriteSampleCheckpoint } from "./interventions.js";
 import { writeManuscriptIntelligenceReport } from "./intelligence.js";
 import { writeKdpPackage } from "./kdp.js";
+import { writeLayoutProfileReport } from "./layout-profiles.js";
 import { writeLaunchKit } from "./launch.js";
 import { recordDecision, recordSource } from "./ledger.js";
 import { writeMetadataLab } from "./metadata-lab.js";
@@ -433,7 +434,7 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
     getArgumentCompletions: (prefix: string) => {
       const parts = prefix.trim().split(/\s+/);
       if (parts.length <= 1) {
-        return ["run", "resume", "status", "next", "dashboard", "map", "doctor-run", "stop", "approve", "reject", "feedback", "feedback-plan", "approve-revision-plan", "reject-revision-plan", "list-runs", "export", "kdp", "audit", "final-check", "doctor", "open", "stats", "init-config", "metadata-lab", "revision-board", "style-profile", "style-lint", "scene-map", "pacing", "critique-panel", "source-audit", "source", "source-pack", "source-vault", "revision-history", "bible-check", "beta-packet", "variants", "choose-variant", "launch-kit", "book-matter", "cover-check", "archive", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
+        return ["run", "resume", "status", "next", "dashboard", "map", "doctor-run", "stop", "approve", "reject", "feedback", "feedback-plan", "approve-revision-plan", "reject-revision-plan", "list-runs", "export", "kdp", "audit", "final-check", "doctor", "open", "stats", "init-config", "metadata-lab", "revision-board", "layout-profile", "style-profile", "style-lint", "scene-map", "pacing", "critique-panel", "source-audit", "source", "source-pack", "source-vault", "revision-history", "bible-check", "beta-packet", "variants", "choose-variant", "launch-kit", "book-matter", "cover-check", "archive", "revise-chapter", "inspect-continuity", "checkpoint", "compare-drafts", "short-story", "migrate"]
           .filter((item) => item.startsWith(parts[0] ?? ""))
           .map((item) => ({ value: item, label: item }));
       }
@@ -847,6 +848,17 @@ export default function bookGenesisExtension(pi: ExtensionAPI) {
           const result = writeRevisionBoard(readRunState(runDir));
           writeRunDashboard(readRunState(runDir));
           sendStatus(pi, `Revision board written.\n${result.markdownPath}\n${result.jsonPath}`);
+          return;
+        }
+
+        case "layout-profile": {
+          const runDir = resolveRunDir(rest, ctx);
+          if (!runDir) {
+            ctx.ui.notify("No run directory provided and no active run found.", "error");
+            return;
+          }
+          const result = writeLayoutProfileReport(readRunState(runDir));
+          sendStatus(pi, `Layout profile written.\n${result.markdownPath}\n${result.jsonPath}`);
           return;
         }
 

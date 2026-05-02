@@ -2,6 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import path from "node:path";
 
 import { writeExportPackage } from "./exports.js";
+import { writeLayoutProfileReport } from "./layout-profiles.js";
 import { writePublishingReadinessReport } from "./publishing.js";
 import type {
   ExportFormat,
@@ -610,6 +611,13 @@ export async function writeKdpPackage(run: RunState): Promise<KdpPackageManifest
       copiedAssets.push(copiedPdfPath);
     }
   }
+
+  const layoutProfile = writeLayoutProfileReport(run);
+  const copiedLayoutJsonPath = path.join(kdpDir, "layout-profile.json");
+  const copiedLayoutMarkdownPath = path.join(kdpDir, "layout-profile.md");
+  copyFileSync(layoutProfile.jsonPath, copiedLayoutJsonPath);
+  copyFileSync(layoutProfile.markdownPath, copiedLayoutMarkdownPath);
+  copiedAssets.push(copiedLayoutJsonPath, copiedLayoutMarkdownPath);
 
   const description = buildDescription(run);
   const keywords = unique(run.config.kdp.keywords);

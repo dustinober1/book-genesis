@@ -7,6 +7,7 @@ import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
 import type { ExportManifest, ExportFormat, RunState } from "./types.js";
 import { writePublishingReadinessReport } from "./publishing.js";
 import { buildMatterWrappedManuscript, writeBookMatter } from "./book-matter.js";
+import { resolveLayoutProfile, writeLayoutProfileReport, type LayoutProfile } from "./layout-profiles.js";
 
 const require = createRequire(import.meta.url);
 const Epub = require("epub-gen");
@@ -612,10 +613,10 @@ function wrapPdfLine(text: string, maxCharacters: number) {
   return lines.length > 0 ? lines : [""];
 }
 
-function buildPdfContentPages(markdown: string, pageWidth: number, pageHeight: number) {
-  const margin = 54;
-  const fontSize = 11;
-  const lineHeight = 15;
+function buildPdfContentPages(markdown: string, pageWidth: number, pageHeight: number, profile: LayoutProfile) {
+  const margin = profile.margins.outside;
+  const fontSize = profile.bodyFontSize;
+  const lineHeight = profile.lineSpacing;
   const usableWidth = pageWidth - margin * 2;
   const maxCharacters = Math.max(28, Math.floor(usableWidth / (fontSize * 0.5)));
   const bottomY = margin;
@@ -689,10 +690,10 @@ function buildPdfDocument(pageWidth: number, pageHeight: number, pages: string[]
 }
 
 async function writePdfExport(run: RunState, outputPath: string, manuscript: string) {
-  const trimSize = parseTrimSize(run.config.kdp.trimSize);
-  const pageWidth = Math.round(trimSize.width * 72);
-  const pageHeight = Math.round(trimSize.height * 72);
-  const pages = buildPdfContentPages(manuscript, pageWidth, pageHeight);
+  const profile = resolveLayoutProfile(run);
+  const pageWidth = profile.pdfMediaBox.widthPoints;
+  const pageHeight = profile.pdfMediaBox.heightPoints;
+  const pages = buildPdfContentPages(manuscript, pageWidth, pageHeight, profile);
   writeFileSync(outputPath, buildPdfDocument(pageWidth, pageHeight, pages), "latin1");
   return outputPath;
 }
@@ -718,6 +719,8 @@ export async function writeExportPackage(
 
   const publishMetadata = writePublishMetadata(run, deliveryDir, manuscript);
   files.push(publishMetadata.jsonPath, publishMetadata.mdPath);
+  const layoutProfile = writeLayoutProfileReport(run);
+  files.push(layoutProfile.jsonPath, layoutProfile.markdownPath);
   files.push(writePublishingReadinessReport(run));
 
   for (const format of requestedFormats) {
@@ -744,6 +747,12 @@ export async function writeExportPackage(
   const manifest: ExportManifest = {
     formats: requestedFormats,
     files: [...files, manifestPath],
+    layoutProfile: {
+      id: layoutProfile.profile.id,
+      label: layoutProfile.profile.label,
+      trimSize: layoutProfile.profile.trimSize,
+      pdfMediaBox: layoutProfile.profile.pdfMediaBox,
+    },
   };
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   run.lastExportManifestPath = manifestPath;

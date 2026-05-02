@@ -56,6 +56,7 @@ Command arguments that contain spaces should be quoted. Paths can be absolute or
 | `/book-genesis stats` | Show run, manuscript, quality, style, source, KDP, and launch stats. |
 | `/book-genesis metadata-lab` | Generate scored marketplace metadata options for subtitle, description, keywords, and categories. |
 | `/book-genesis revision-board` | Generate an actionable chapter and manuscript revision task board. |
+| `/book-genesis layout-profile` | Write the selected interior print layout profile. |
 | `/book-genesis style-profile` | Build author voice/style profile artifacts. |
 | `/book-genesis style-lint` | Write deterministic style lint reports. |
 | `/book-genesis scene-map` | Write a chapter/scene map. |
@@ -451,6 +452,7 @@ Publishing and launch-prep commands:
 
 - `/book-genesis metadata-lab [run-dir]`
 - `/book-genesis revision-board [run-dir]`
+- `/book-genesis layout-profile [run-dir]`
 - `/book-genesis launch-kit [run-dir] [--json]`
 - `/book-genesis book-matter [run-dir]`
 - `/book-genesis cover-check [run-dir] <cover-path> [--target ebook|paperback] [--json]`
@@ -459,6 +461,8 @@ Publishing and launch-prep commands:
 `metadata-lab` writes scored subtitle, description, keyword-chain, and category candidates under `delivery/metadata-lab/`, including `metadata-scorecard.json`, `metadata-lab.md`, `subtitles.md`, `descriptions.md`, `keyword-chains.md`, and `categories.md`.
 
 `revision-board` writes `revisions/revision-board.json` and `revisions/revision-board.md`, aggregating manuscript intelligence, style, pacing, source, critique, and reviewer feedback into prioritized tasks with acceptance criteria.
+
+`layout-profile` writes `delivery/layout-profile.json` and `delivery/layout-profile.md` for the selected interior profile. The export and KDP package include this report so paperback review has a clear trim, margin, and typography contract.
 
 `launch-kit` writes the newsletter sequence, ARC invite, book club questions, press kit, author Q&A, retailer description variants, social calendar, homepage copy, and manifest under `promotion/launch-kit/`.
 
