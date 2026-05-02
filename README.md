@@ -11,6 +11,10 @@ This package is a derivative PI-native port of **Book Genesis**, the open-source
 
 The PI runtime in this folder is an adaptation layer around that original work, not a claim of independent origin.
 
+## Release History
+
+See `CHANGELOG.md` for user-facing release notes and verification status across recent PI package releases.
+
 ## Install
 
 ```bash
