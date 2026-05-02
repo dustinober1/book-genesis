@@ -43,3 +43,19 @@ test("revise and deliver prompts include release contracts", () => {
   assert.match(deliver, /KDP readiness/);
   assert.match(deliver, /promotion package/);
 });
+
+test("publishing workbench prompts mention new artifact contracts", () => {
+  const research = prompt("research");
+  const evaluate = prompt("evaluate");
+  const revise = prompt("revise");
+  const deliver = prompt("deliver");
+
+  assert.match(research, /source vault/i);
+  assert.match(research, /claim links/i);
+  assert.match(evaluate, /revision board/i);
+  assert.match(revise, /revision board/i);
+  assert.match(revise, /acceptance criteria/i);
+  assert.match(deliver, /metadata lab/i);
+  assert.match(deliver, /layout profile/i);
+  assert.match(deliver, /KDP readiness/i);
+});

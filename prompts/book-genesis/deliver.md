@@ -16,6 +16,7 @@ Requirements:
 - produce the mode-specific delivery package required by the active book mode, even when it differs from fiction defaults
 - package-summary should list every delivery artifact and any outstanding caveats
 - prepare source material for launch-kit generation, front/back matter, KDP readiness, cover validation, and the promotion package
+- leave the package ready for metadata lab generation, layout profile review, source-vault/source-audit review, and KDP readiness checks
 - companion short stories must stay under the configured page limit, match the book's genre/tone/audience, avoid main-manuscript spoilers, and include website-ready signup and landing copy
 - use the ledger and latest passed quality gate to keep delivery assets consistent with the manuscript
 - leave the manuscript and delivery assets ready for `/book-genesis export` to generate markdown, DOCX, and EPUB packages

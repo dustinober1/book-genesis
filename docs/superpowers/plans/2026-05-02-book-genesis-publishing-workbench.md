@@ -1097,7 +1097,7 @@ git commit -m "feat: integrate publishing workbench readiness"
 - Modify: `README.md`
 - Create: `docs/releases/2026-05-publishing-workbench.md`
 
-- [ ] **Step 1: Add prompt contract tests**
+- [x] **Step 1: Add prompt contract tests**
 
 Extend `tests/prompt-contracts.test.ts` with assertions that:
 
@@ -1114,7 +1114,7 @@ assert.match(evaluatePrompt, /revision board/i);
 assert.match(deliverPrompt, /metadata lab/i);
 ```
 
-- [ ] **Step 2: Run prompt contract tests and verify failures**
+- [x] **Step 2: Run prompt contract tests and verify failures**
 
 Run:
 
@@ -1124,7 +1124,7 @@ node --test --import tsx tests/prompt-contracts.test.ts
 
 Expected: FAIL until prompt files are updated.
 
-- [ ] **Step 3: Update prompt files**
+- [x] **Step 3: Update prompt files**
 
 Add concise phase instructions:
 
@@ -1133,7 +1133,7 @@ Add concise phase instructions:
 - `revise.md`: satisfy revision-board acceptance criteria and update task status in notes.
 - `deliver.md`: generate metadata lab, layout profile report, source vault report, and workbench before KDP packaging.
 
-- [ ] **Step 4: Update README**
+- [x] **Step 4: Update README**
 
 Document:
 
@@ -1157,7 +1157,7 @@ Document:
 /book-genesis kdp
 ```
 
-- [ ] **Step 5: Write release notes**
+- [x] **Step 5: Write release notes**
 
 Create `docs/releases/2026-05-publishing-workbench.md`:
 
@@ -1184,7 +1184,7 @@ This release adds a publishing workbench layer for marketplace metadata, source 
 - `npm run typecheck`
 ```
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run:
 

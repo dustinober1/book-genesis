@@ -723,6 +723,33 @@ Book Genesis reads `book-genesis.config.json` from the workspace root. `--config
     "includeState": true,
     "includeLedger": true,
     "includeReports": true
+  },
+  "metadataLab": {
+    "enabled": true,
+    "requiredForKdp": true,
+    "maxSubtitleOptions": 7,
+    "maxDescriptionOptions": 4,
+    "maxKeywordChains": 7
+  },
+  "sourceVault": {
+    "enabled": true,
+    "requireClaimLinksForNonfiction": true,
+    "minConfidenceForFinal": "medium"
+  },
+  "revisionBoard": {
+    "enabled": true,
+    "defaultPriority": "medium",
+    "includeInfoFindings": false
+  },
+  "layoutProfiles": {
+    "enabled": true,
+    "defaultProfile": "fiction-paperback-6x9",
+    "requireProfileForPaperback": true
+  },
+  "workbench": {
+    "enabled": true,
+    "includeRecentHistoryLimit": 8,
+    "includeArtifactLinks": true
   }
 }
 ```
@@ -739,6 +766,20 @@ Additional config notes:
 - `promotion` controls companion short-story assets for website lead magnets, world teasers, or content series
 - `style`, `sceneMap`, `critiquePanel`, and `sourceAudit` control quality-intelligence reports
 - `launchKit`, `bookMatter`, `coverCheck`, `revisionPlan`, and `archive` control publishing, revision, and handoff surfaces
+- `metadataLab`, `sourceVault`, `revisionBoard`, `layoutProfiles`, and `workbench` control the publishing workbench release surfaces
+
+Recommended final publishing workbench flow:
+
+```text
+/book-genesis source-vault
+/book-genesis metadata-lab
+/book-genesis revision-board
+/book-genesis layout-profile
+/book-genesis workbench
+/book-genesis final-check
+/book-genesis export
+/book-genesis kdp
+```
 
 Mode-specific starter configs:
 
